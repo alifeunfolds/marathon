@@ -1,6 +1,7 @@
 package mesosphere.marathon
 package core.matcher.reconcile.impl
 
+import com.typesafe.scalalogging.StrictLogging
 import mesosphere.marathon.core.instance.Instance
 import mesosphere.marathon.core.instance.update.InstanceUpdateOperation
 import mesosphere.marathon.core.launcher.InstanceOp
@@ -15,7 +16,6 @@ import mesosphere.marathon.storage.repository.GroupRepository
 import mesosphere.marathon.stream.Implicits._
 import mesosphere.util.state.FrameworkId
 import org.apache.mesos.Protos.{ Offer, OfferID, Resource }
-import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
 
@@ -32,9 +32,7 @@ import scala.concurrent.Future
   * * and creating unreserved/destroy operations for tasks in state "garbage" only
   */
 private[reconcile] class OfferMatcherReconciler(instanceTracker: InstanceTracker, groupRepository: GroupRepository)
-    extends OfferMatcher {
-
-  private val log = LoggerFactory.getLogger(getClass)
+    extends OfferMatcher with StrictLogging {
 
   import mesosphere.marathon.core.async.ExecutionContexts.global
 
@@ -65,7 +63,7 @@ private[reconcile] class OfferMatcherReconciler(instanceTracker: InstanceTracker
       else {
         def createInstanceOps(instancesBySpec: InstancesBySpec, rootGroup: RootGroup): MatchedInstanceOps = {
 
-          // TODO(jdef) pods don't suport resident resources yet so we don't need to worry about including them here
+          // TODO(jdef) pods don't support resident resources yet so we don't need to worry about including them here
           /* Was this task launched from a previous app definition, or a prior launch that did not clean up properly */
           def spurious(instanceId: Instance.Id): Boolean =
             instancesBySpec.instance(instanceId).isEmpty || rootGroup.app(instanceId.runSpecId).isEmpty
@@ -78,9 +76,7 @@ private[reconcile] class OfferMatcherReconciler(instanceTracker: InstanceTracker
                   oldInstance = instancesBySpec.instance(taskId.instanceId),
                   resources = spuriousResources
                 )
-              log.warn(
-                "removing spurious resources and volumes of {} because the instance does no longer exist",
-                taskId.instanceId)
+              logger.warn(s"removing spurious resources and volumes of ${taskId.instanceId} because the instance does no longer exist")
               InstanceOpWithSource(source(offer.getId), unreserveAndDestroy)
           }(collection.breakOut)
 
@@ -98,8 +94,8 @@ private[reconcile] class OfferMatcherReconciler(instanceTracker: InstanceTracker
 
   private[this] def source(offerId: OfferID) = new InstanceOpSource {
     override def instanceOpAccepted(instanceOp: InstanceOp): Unit =
-      log.info(s"accepted unreserveAndDestroy for ${instanceOp.instanceId} in offer [${offerId.getValue}]")
+      logger.info(s"accepted unreserveAndDestroy for ${instanceOp.instanceId} in offer [${offerId.getValue}]")
     override def instanceOpRejected(instanceOp: InstanceOp, reason: String): Unit =
-      log.info("rejected unreserveAndDestroy for {} in offer [{}]: {}", instanceOp.instanceId, offerId.getValue, reason)
+      logger.info(s"rejected unreserveAndDestroy for ${instanceOp.instanceId} in offer [${offerId.getValue}]: $reason")
   }
 }

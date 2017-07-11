@@ -85,6 +85,22 @@ class KillServiceActorTest extends AkkaUnitTest with StrictLogging {
       }
     }
 
+    "asked to kill single known instance that results in TASK_LOST" should {
+      "complete the kill" in withActor(defaultConfig) { (f, actor) =>
+
+        val instance = f.mockInstance(f.runSpecId, f.now(), mesos.Protos.TaskState.TASK_RUNNING)
+        val promise = Promise[Done]()
+        actor ! KillServiceActor.KillInstances(Seq(instance), promise)
+
+        val (taskId, _) = instance.tasksMap.head
+        verify(f.driver, timeout(f.killConfig.killRetryTimeout.toMillis.toInt * 2)).killTask(taskId.mesosTaskId)
+
+        f.publishInstanceChanged(TaskStatusUpdateTestHelper.lost(mesos.Protos.TaskStatus.Reason.REASON_TASK_UNKNOWN, instance).wrapped)
+
+        promise.future.futureValue should be(Done)
+      }
+    }
+
     "asked to kill multiple instances at once" should {
       "issue three kill requests to the driver" in withActor(defaultConfig) { (f, actor) =>
         val runningInstance = f.mockInstance(f.runSpecId, f.clock.now(), mesos.Protos.TaskState.TASK_RUNNING)
@@ -104,6 +120,9 @@ class KillServiceActorTest extends AkkaUnitTest with StrictLogging {
 
         f.publishInstanceChanged(TaskStatusUpdateTestHelper.killed(runningInstance).wrapped)
         f.publishInstanceChanged(TaskStatusUpdateTestHelper.gone(unreachableInstance).wrapped)
+
+        promise.future.isReadyWithin(1 second) should be (false) withClue "Kill service completed promise before all tasks have been killed."
+
         f.publishInstanceChanged(TaskStatusUpdateTestHelper.unreachable(stagingInstance).wrapped)
 
         promise.future.futureValue should be (Done)

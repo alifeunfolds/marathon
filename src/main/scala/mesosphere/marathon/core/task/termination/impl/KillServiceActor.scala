@@ -15,7 +15,6 @@ import mesosphere.marathon.core.task.termination.InstanceChangedPredicates.consi
 import mesosphere.marathon.core.task.termination.KillConfig
 import mesosphere.marathon.core.task.tracker.TaskStateOpProcessor
 import mesosphere.marathon.state.Timestamp
-import mesosphere.marathon.stream.Sink
 
 import scala.collection.mutable
 import scala.concurrent.{ Future, Promise }
@@ -30,10 +29,6 @@ import scala.concurrent.{ Future, Promise }
   * time window, the kill is retried a configurable number of times. If the maximum
   * number of retries is exceeded, the instance will be expunged from state similar to a
   * lost instance.
-  *
-  * For each kill request, a [[KillStreamWatcher]] will be created, which
-  * is supposed to watch the progress and complete a given promise when all watched
-  * instances are reportedly terminal.
   *
   * For pods started via the default executor, it is sufficient to kill 1 task of the group,
   * which will cause all tasks to be killed
@@ -93,34 +88,38 @@ private[impl] class KillServiceActor(
 
   def killUnknownTaskById(taskId: Task.Id): Unit = {
     logger.debug(s"Received KillUnknownTaskById($taskId)")
-    instancesToKill.update(taskId.instanceId, ToKill(taskId.instanceId, Seq(taskId), maybeInstance = None, attempts = 0))
+    val promise = Promise[Done]
+    instancesToKill.update(taskId.instanceId, ToKill(taskId.instanceId, Seq(taskId), maybeInstance = None, attempts = 0, promise = promise))
     processKills()
   }
 
   def killInstances(instances: Seq[Instance], promise: Promise[Done]): Unit = {
+    if (instances.isEmpty) promise.trySuccess(Done)
+
     val instanceIds = instances.map(_.instanceId)
-    logger.debug(s"Adding instances $instanceIds to queue; setting up child actor to track progress")
-    promise.completeWith(watchForKilledInstances(instanceIds))
+    logger.debug(s"Adding instances $instanceIds to queue")
+
+    val instanceKilledFutures = Seq.newBuilder[Future[Done]]
+
     instances.foreach { instance =>
+
+      // This promise is completed once this instance has been killed.
+      val killPromise = Promise[Done]()
+      instanceKilledFutures += killPromise.future
+
       // TODO(PODS): do we make sure somewhere that an instance has _at_least_ one task?
       val taskIds: IndexedSeq[Id] = instance.tasksMap.values.withFilter(!_.isTerminal).map(_.taskId)(collection.breakOut)
       instancesToKill.update(
         instance.instanceId,
-        ToKill(instance.instanceId, taskIds, maybeInstance = Some(instance), attempts = 0)
+        ToKill(instance.instanceId, taskIds, maybeInstance = Some(instance), attempts = 0, killPromise)
       )
     }
-    processKills()
-  }
 
-  /**
-    * Begins watching immediately for terminated instances. Future is completed when all instances are seen.
-    */
-  def watchForKilledInstances(instanceIds: Seq[Instance.Id]): Future[Done] = {
-    // Note - we toss the materialized cancellable. We are okay to do this here because KillServiceActor will continue to retry
-    // killing the instanceIds in question, forever, until this Future completes.
-    KillStreamWatcher.
-      watchForKilledInstances(context.system.eventStream, instanceIds).
-      runWith(Sink.head)
+    // Complete promise once all instances have been killed.
+    val allInstancesKilled: Future[Done] = Future.sequence(instanceKilledFutures.result()).map(_ => Done)
+    promise.completeWith(allInstancesKilled)
+
+    processKills()
   }
 
   def processKills(): Unit = {
@@ -140,8 +139,6 @@ private[impl] class KillServiceActor(
   }
 
   def processKill(toKill: ToKill): Unit = {
-    val instanceId = toKill.instanceId
-    val taskIds = toKill.taskIdsToKill
 
     KillAction(toKill.instanceId, toKill.taskIdsToKill, toKill.maybeInstance) match {
       case KillAction.Noop =>
@@ -149,22 +146,25 @@ private[impl] class KillServiceActor(
 
       case KillAction.IssueKillRequest =>
         driverHolder.driver.foreach { driver =>
-          taskIds.map(_.mesosTaskId).foreach(driver.killTask)
+          toKill.taskIdsToKill.map(_.mesosTaskId).foreach(driver.killTask)
         }
-        val attempts = inFlight.get(toKill.instanceId).fold(1)(_.attempts + 1)
+        val attempts = toKill.attempts + 1
         inFlight.update(
-          toKill.instanceId, ToKill(instanceId, taskIds, toKill.maybeInstance, attempts, issued = clock.now()))
+          toKill.instanceId, toKill.copy(attempts = attempts, issued = clock.now())
+        )
 
       case KillAction.ExpungeFromState =>
         stateOpProcessor.process(InstanceUpdateOperation.ForceExpunge(toKill.instanceId))
+        // TODO: When should the promise be fulfilled?
+        toKill.promise.trySuccess(Done)
     }
 
-    instancesToKill.remove(instanceId)
+    instancesToKill.remove(toKill.instanceId)
   }
 
   def handleTerminal(instanceId: Instance.Id): Unit = {
     instancesToKill.remove(instanceId)
-    inFlight.remove(instanceId)
+    inFlight.remove(instanceId).map(_.promise.trySuccess(Done))
     logger.debug(s"$instanceId is terminal. (${instancesToKill.size} kills queued, ${inFlight.size} in flight)")
     processKills()
   }
@@ -205,6 +205,7 @@ private[termination] object KillServiceActor {
     * @param taskIdsToKill ids of the tasks to kill
     * @param maybeInstance the instance, if available
     * @param attempts the number of kill attempts
+    * @param promise Promise that is fulfilled once task has been killed
     * @param issued the time of the last issued kill request
     */
   case class ToKill(
@@ -212,6 +213,7 @@ private[termination] object KillServiceActor {
     taskIdsToKill: Seq[Task.Id],
     maybeInstance: Option[Instance],
     attempts: Int,
+    promise: Promise[Done],
     issued: Timestamp = Timestamp.zero)
 }
 
