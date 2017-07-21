@@ -1,5 +1,8 @@
 #!/usr/bin/env amm
 
+// Get a logging backend into classpath.
+import $ivy.`org.slf4j:slf4j-simple:1.7.25`
+
 import ammonite.ops._
 import ammonite.ops.ImplicitWd._
 import java.util.concurrent.TimeUnit
@@ -38,35 +41,46 @@ def zipSandboxLogs(): Unit = {
 }
 
 @main
-def uploadPackagesToS3(): Unit = utils.stage("Upload Packages") {
-  // || file.ext == "sha1" removed, separated out
-  (ls! PACKAGE_DIR |? (file => file.ext == "tgz" || file.ext == "txz" ))
-    .foreach(awsClient.archiveArtifact)
+/**
+ * Upload Marathon tgz tarballs and its cha1 checksum to S3.
+ *
+ * @return Artifact description if it was uploaded.
+ */
+def uploadTarballToS3(): Option[awsClient.Artifact] = utils.stage("Upload Packages") {
+  import scala.collection.breakOut
+
+  (ls! PACKAGE_DIR |? (file => file.ext == "tgz"))
+    .headOption.flatMap(awsClient.archiveArtifact)
 }
 
 @main
-def createAndUploadPackages(): Unit = {
-  createPackages()
-  uploadPackagesToS3()
-  createLinuxPackages()
-}
-
 /**
- * Creates SHA-1 for all files in the package directory
+ * Packages Marathon and uploads its artifacts alongside sha1 checksum to S3.
+ *
+ * @return Version and artifact description of Marathon build.
  */
-def createPackageSha1s(): Unit = {
-  (ls! PACKAGE_DIR |? (file => file.ext == "tgz" || file.ext == "txz"))
-    .foreach(fileUtil.writeSha1ForFile)
+def createAndUploadPackages(): (String, Option[awsClient.Artifact]) = {
+  val version = createPackages()
+  val artifact = uploadTarballToS3()
+  createLinuxPackages()
+  (version, artifact)
 }
 
 /**
  * Creates the zip and txz files of the Marathon runnable package with their
  * associated sha1
+ *
+ * @return version of build.
  */
 @main
-def createPackages(): Unit = utils.stage("Package") {
-  %('sbt, "universal:packageZipTarball", "universal:packageXzTarball")
-  createPackageSha1s()
+def createPackages(): String = utils.stage("Package") {
+  val result = %%('sbt, "universal:packageZipTarball", "version")
+
+  // Nothing is what it seems. This is a poor man's way to extract the version
+  // from sbt's console output until we run our Ammonite scripts in sbt.
+  val version = result.out.lines.last.drop(23).trim().dropRight(3)
+  println(s"Built tarballs for Marathon $version.")
+  version
 }
 
 /**
@@ -101,6 +115,18 @@ def phabricator(): Unit = {
 }
 
 /**
+ * Update DC/OS repository and triggers build of update DC/OS image.
+ *
+ * @param version The newly built Marathon version.
+ * @param artifactUrl Url for the saved Marathon artifact.
+ * @param sha1 The sah1 checksum of the artifact.
+ */
+@main
+def updateDcosImage(version: String, artifactUrl: String, sha1: String): Unit = {
+  upgrade.updateMarathon(artifactUrl, sha1, s"Update Marathon to $version")
+}
+
+/**
  * The main pipeline target for builds on Jekins.
  */
 @main
@@ -116,5 +142,11 @@ def jenkins(): Unit = {
     zipSandboxLogs()    // Try to archive logs in any case
   }
 
-  createAndUploadPackages()
+  val (version, maybeArtifact) = createAndUploadPackages()
+
+  if(utils.isMasterBuild) {
+    maybeArtifact.foreach { artifact =>
+      updateDcosImage(version, artifact.downloadUrl, artifact.sha1)
+    }
+  }
 }
