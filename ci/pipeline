@@ -49,7 +49,7 @@ def zipSandboxLogs(): Unit = {
 def uploadTarballToS3(): Option[awsClient.Artifact] = utils.stage("Upload Packages") {
   import scala.collection.breakOut
 
-  (ls! PACKAGE_DIR |? (file => file.ext == "tgz"))
+  PACKAGE_DIR.toFile.listFiles.filter(f => f.getName.endsWith("tgz"))
     .headOption.flatMap(awsClient.archiveArtifact)
 }
 
