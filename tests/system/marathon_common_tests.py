@@ -975,12 +975,12 @@ def test_private_repository_docker_app():
     common.assert_app_tasks_running(client, app_def)
 
 
-@pytest.mark.skipif('marthon_version_less_than("1.5")')
 @pytest.mark.skipif("ee_version() is None")
 @pytest.mark.skipif("docker_env_set()")
 def test_private_repository_mesos_app():
     """ Test private docker registry with mesos containerizer using "config" container's image field."""
 
+    requires_marathon_version("1.5")
     if not common.is_enterprise_cli_package_installed():
         common.install_enterprise_cli_package()
 
