@@ -840,7 +840,7 @@ def install_enterprise_cli_package():
         command to create secrets, manage service accounts etc.
     """
     print('Installing dcos-enterprise-cli package')
-    stdout, stderr, return_code = run_dcos_command('package install dcos-enterprise-cli')
+    stdout, stderr, return_code = run_dcos_command('package install dcos-enterprise-cli --cli --yes')
     assert return_code == 0, "Failed to install dcos-enterprise-cli package"
 
 
