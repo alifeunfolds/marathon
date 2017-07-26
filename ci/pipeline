@@ -76,9 +76,15 @@ def createAndUploadPackages(): (String, Option[awsClient.Artifact]) = {
 def createPackages(): String = utils.stage("Package") {
   val result = %%('sbt, "universal:packageZipTarball", "version")
 
+  // Regex is for version:
+  // starting with random chars, match $number$dot$number$dot$number followed by optional alpha numberic chars plus `-`
+  // ending with random characters
+  // we need to regex this string because we do have colored output in the `sbt version` command
+  val VersionLineRegex = "^.*(\\d+\\.\\d+\\.\\d+[-A-Za-z\\d]+).*$".r
+
   // Nothing is what it seems. This is a poor man's way to extract the version
   // from sbt's console output until we run our Ammonite scripts in sbt.
-  val version = result.out.lines.last.drop(23).trim().dropRight(3)
+  val VersionLineRegex(version) = result.out.lines.last
   println(s"Built tarballs for Marathon $version.")
   version
 }
