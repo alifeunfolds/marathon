@@ -4,13 +4,14 @@ package core.instance
 import com.fasterxml.uuid.{ EthernetAddress, Generators }
 import mesosphere.marathon.state.{ PathId, PersistentVolume, Timestamp }
 import mesosphere.marathon.api.v2.json.Formats._
+import mesosphere.marathon.core.instance.ReservationInfo.Timeout.Reason
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
 case class ReservationInfo(volumeIds: Seq[LocalVolumeId], labels: Map[String, String], timeout: Option[ReservationInfo.Timeout])
 
 object ReservationInfo {
-  implicit val reservationInfoFormat: Format[ReservationInfo] = ???
+
   val Empty: Option[ReservationInfo] = Option.empty[ReservationInfo]
 
   /**
@@ -31,47 +32,24 @@ object ReservationInfo {
       case object ReservationTimeout extends Reason
     }
 
-    implicit object ReasonFormat extends Format[Timeout.Reason] {
-      override def reads(json: JsValue): JsResult[Timeout.Reason] = {
-        json.validate[String].map {
-          case "RelaunchEscalationTimeout" => Reason.RelaunchEscalationTimeout
-          case "ReservationTimeout" => Reason.ReservationTimeout
-        }
-      }
+    val Empty: Option[Timeout] = Option.empty[Timeout]
+  }
 
-      override def writes(o: Timeout.Reason): JsValue = {
-        JsString(o.toString)
+  // I'm honestly sorry for this formats mess, this needs to be cleaned up -- copy & paste so far
+  implicit object ReasonFormat extends Format[Timeout.Reason] {
+    override def reads(json: JsValue): JsResult[Timeout.Reason] = {
+      json.validate[String].map {
+        case "RelaunchEscalationTimeout" => Reason.RelaunchEscalationTimeout
+        case "ReservationTimeout" => Reason.ReservationTimeout
       }
     }
-    implicit val timeoutFormat = Json.format[Timeout]
+
+    override def writes(o: Timeout.Reason): JsValue = {
+      JsString(o.toString)
+    }
   }
-}
 
-case class LocalVolume(id: LocalVolumeId, persistentVolume: PersistentVolume)
-
-case class LocalVolumeId(runSpecId: PathId, containerPath: String, uuid: String) {
-  import LocalVolumeId._
-  lazy val idString = runSpecId.safePath + delimiter + containerPath + delimiter + uuid
-
-  override def toString: String = s"LocalVolume [$idString]"
-}
-
-object ReservationLabels {
-
-}
-
-object LocalVolumeId {
-  private val uuidGenerator = Generators.timeBasedGenerator(EthernetAddress.fromInterface())
-  private val delimiter = "#"
-  private val LocalVolumeEncoderRE = s"^([^$delimiter]+)[$delimiter]([^$delimiter]+)[$delimiter]([^$delimiter]+)$$".r
-
-  def apply(runSpecId: PathId, volume: PersistentVolume): LocalVolumeId =
-    LocalVolumeId(runSpecId, volume.containerPath, uuidGenerator.generate().toString)
-
-  def unapply(id: String): Option[(LocalVolumeId)] = id match {
-    case LocalVolumeEncoderRE(runSpec, path, uuid) => Some(LocalVolumeId(PathId.fromSafePath(runSpec), path, uuid))
-    case _ => None
-  }
+  implicit val timeoutFormat = Json.format[Timeout]
 
   implicit val localVolumeIdReader = (
     (__ \ "runSpecId").read[PathId] and
@@ -86,5 +64,30 @@ object LocalVolumeId {
       "uuid" -> Json.toJson(localVolumeId.uuid),
       "persistenceId" -> Json.toJson(localVolumeId.idString)
     ))
+  }
+
+  implicit val reservationInfoFormat: Format[ReservationInfo] = Json.format[ReservationInfo]
+}
+
+case class LocalVolume(id: LocalVolumeId, persistentVolume: PersistentVolume)
+
+case class LocalVolumeId(runSpecId: PathId, containerPath: String, uuid: String) {
+  import LocalVolumeId._
+  lazy val idString = runSpecId.safePath + delimiter + containerPath + delimiter + uuid
+
+  override def toString: String = s"LocalVolume [$idString]"
+}
+
+object LocalVolumeId {
+  private val uuidGenerator = Generators.timeBasedGenerator(EthernetAddress.fromInterface())
+  private val delimiter = "#"
+  private val LocalVolumeEncoderRE = s"^([^$delimiter]+)[$delimiter]([^$delimiter]+)[$delimiter]([^$delimiter]+)$$".r
+
+  def apply(runSpecId: PathId, volume: PersistentVolume): LocalVolumeId =
+    LocalVolumeId(runSpecId, volume.containerPath, uuidGenerator.generate().toString)
+
+  def unapply(id: String): Option[(LocalVolumeId)] = id match {
+    case LocalVolumeEncoderRE(runSpec, path, uuid) => Some(LocalVolumeId(PathId.fromSafePath(runSpec), path, uuid))
+    case _ => None
   }
 }

@@ -295,7 +295,8 @@ class InstanceUpdaterTest extends UnitTest {
 
     val agentInfo = AgentInfo("localhost", None, Seq.empty)
     val instanceState = InstanceState(Condition.Running, clock.now(), Some(clock.now()), None)
-    val taskId: Task.Id = Task.Id("uniq")
+    val appId = PathId("/test")
+    val taskId: Task.Id = Task.Id.forRunSpec(appId)
     val mesosTaskStatus = MesosTaskStatusTestHelper.runningHealthy(taskId)
     val taskStatus = Task.Status(
       stagedAt = clock.now(),
@@ -304,7 +305,7 @@ class InstanceUpdaterTest extends UnitTest {
       condition = Condition.Running,
       networkInfo = NetworkInfoPlaceholder()
     )
-    val task = Task.LaunchedEphemeral(taskId, runSpecVersion = clock.now(), status = taskStatus)
+    val task = Task(taskId, runSpecVersion = clock.now(), status = taskStatus)
     val instance = Instance(
       Instance.Id("foobar.instance-baz"), agentInfo, instanceState, Map(taskId -> task), clock.now(),
       UnreachableStrategy.default(), ReservationInfo.Empty)

@@ -39,31 +39,6 @@ case class TestTaskBuilder(
   def taskLaunched(container: Option[MesosContainer] = None) =
     this.copy(task = Some(TestTaskBuilder.Helper.minimalTask(instanceBuilder.getInstance().instanceId, container, now).copy(taskId = Task.Id.forInstanceId(instanceBuilder.getInstance().instanceId, None))))
 
-  def taskReserved(reservation: Task.Reservation = TestTaskBuilder.Helper.newReservation, containerName: Option[String] = None) = {
-    val instance = instanceBuilder.getInstance()
-    this.copy(task = Some(TestTaskBuilder.Helper.minimalReservedTask(instance.instanceId.runSpecId, reservation, Some(instance)).copy(taskId = Task.Id.forInstanceId(instance.instanceId, maybeMesosContainerByName(containerName)))))
-  }
-
-  def taskResidentReserved(localVolumeIds: Task.LocalVolumeId*) = {
-    val instance = instanceBuilder.getInstance()
-    this.copy(task = Some(TestTaskBuilder.Helper.residentReservedTask(instance.instanceId.runSpecId, TestTaskBuilder.Helper.taskReservationStateNew, localVolumeIds: _*).copy(taskId = Task.Id.forInstanceId(instance.instanceId, None))))
-  }
-
-  def taskResidentReserved(taskReservationState: Task.Reservation.State) = {
-    val instance = instanceBuilder.getInstance()
-    this.copy(task = Some(TestTaskBuilder.Helper.residentReservedTask(instance.instanceId.runSpecId, taskReservationState, Seq.empty[Task.LocalVolumeId]: _*).copy(taskId = Task.Id.forInstanceId(instance.instanceId, None))))
-  }
-
-  def taskResidentLaunched(localVolumeIds: Task.LocalVolumeId*) = {
-    val instance = instanceBuilder.getInstance()
-    this.copy(task = Some(TestTaskBuilder.Helper.residentLaunchedTask(instance.instanceId.runSpecId, localVolumeIds: _*).copy(taskId = Task.Id.forInstanceId(instance.instanceId, None))))
-  }
-
-  def taskResidentUnreachable(localVolumeIds: Task.LocalVolumeId*) = {
-    val instance = instanceBuilder.getInstance()
-    this.copy(task = Some(TestTaskBuilder.Helper.residentUnreachableTask(instance.instanceId.runSpecId, localVolumeIds: _*).copy(taskId = Task.Id.forInstanceId(instance.instanceId, None))))
-  }
-
   def taskRunning(containerName: Option[String] = None, stagedAt: Timestamp = now, startedAt: Timestamp = now) = {
     val instance = instanceBuilder.getInstance()
     this.copy(task = Some(TestTaskBuilder.Helper.runningTask(
@@ -204,10 +179,10 @@ object TestTaskBuilder {
       taskInfo: mesos.Protos.TaskInfo,
       offer: mesos.Protos.Offer = MarathonTestHelper.makeBasicOffer().build(),
       version: Timestamp = Timestamp(10), now: Timestamp = Timestamp(10),
-      taskCondition: Condition = Condition.Staging): Task.LaunchedEphemeral = {
+      taskCondition: Condition = Condition.Staging): Task = {
 
       log.debug(s"offer: $offer")
-      Task.LaunchedEphemeral(
+      Task(
         taskId = Task.Id(taskInfo.getTaskId),
         runSpecVersion = version,
         status = Task.Status(
@@ -218,17 +193,17 @@ object TestTaskBuilder {
       )
     }
 
-    def minimalTask(appId: PathId): Task.LaunchedEphemeral = minimalTask(Task.Id.forRunSpec(appId))
+    def minimalTask(appId: PathId): Task = minimalTask(Task.Id.forRunSpec(appId))
 
-    def minimalTask(instanceId: Instance.Id, container: Option[MesosContainer], now: Timestamp): Task.LaunchedEphemeral =
+    def minimalTask(instanceId: Instance.Id, container: Option[MesosContainer], now: Timestamp): Task =
       minimalTask(Task.Id.forInstanceId(instanceId, container), now)
 
-    def minimalTask(taskId: Task.Id, now: Timestamp = Timestamp.now(), mesosStatus: Option[mesos.Protos.TaskStatus] = None): Task.LaunchedEphemeral = {
+    def minimalTask(taskId: Task.Id, now: Timestamp = Timestamp.now(), mesosStatus: Option[mesos.Protos.TaskStatus] = None): Task = {
       minimalTask(taskId, now, mesosStatus, if (mesosStatus.isDefined) TaskCondition(mesosStatus.get) else Condition.Created)
     }
 
-    def minimalTask(taskId: Task.Id, now: Timestamp, mesosStatus: Option[mesos.Protos.TaskStatus], taskCondition: Condition): Task.LaunchedEphemeral = {
-      Task.LaunchedEphemeral(
+    def minimalTask(taskId: Task.Id, now: Timestamp, mesosStatus: Option[mesos.Protos.TaskStatus], taskCondition: Condition): Task = {
+      Task(
         taskId,
         runSpecVersion = now,
         status = Task.Status(
@@ -241,7 +216,7 @@ object TestTaskBuilder {
       )
     }
 
-    def minimalLostTask(appId: PathId, taskCondition: Condition = Condition.Gone, since: Timestamp = Timestamp.now()): Task.LaunchedEphemeral = {
+    def minimalLostTask(appId: PathId, taskCondition: Condition = Condition.Gone, since: Timestamp = Timestamp.now()): Task = {
       val taskId = Task.Id.forRunSpec(appId)
       val status = MesosTaskStatusTestHelper.lost(mesos.Protos.TaskStatus.Reason.REASON_RECONCILIATION, taskId, since)
       minimalTask(
@@ -252,14 +227,14 @@ object TestTaskBuilder {
       )
     }
 
-    def minimalUnreachableTask(appId: PathId, taskCondition: Condition = Condition.Unreachable, since: Timestamp = Timestamp.now()): Task.LaunchedEphemeral = {
+    def minimalUnreachableTask(appId: PathId, taskCondition: Condition = Condition.Unreachable, since: Timestamp = Timestamp.now()): Task = {
       val lostTask = minimalLostTask(appId = appId, since = since)
       val mesosStatus = MesosTaskStatusTestHelper.unreachable(taskId = lostTask.taskId, since = since)
       val status = lostTask.status.copy(condition = taskCondition, mesosStatus = Some(mesosStatus))
       lostTask.copy(status = status)
     }
 
-    def minimalRunning(appId: PathId, taskCondition: Condition = Condition.Running, since: Timestamp = Timestamp.now()): Task.LaunchedEphemeral = {
+    def minimalRunning(appId: PathId, taskCondition: Condition = Condition.Running, since: Timestamp = Timestamp.now()): Task = {
       val taskId = Task.Id.forRunSpec(appId)
       val status = MesosTaskStatusTestHelper.mesosStatus(state = mesos.Protos.TaskState.TASK_RUNNING, maybeHealthy = Option(true), taskId = taskId)
       minimalTask(
@@ -270,59 +245,26 @@ object TestTaskBuilder {
       )
     }
 
-    def minimalReservedTask(appId: PathId, reservation: Task.Reservation, instance: Option[Instance] = None): Task.Reserved =
-      Task.Reserved(
+    def minimalReservedTask(appId: PathId, instance: Option[Instance] = None): Task =
+      Task(
         taskId = instance.map(i => Task.Id.forInstanceId(i.instanceId, None)).getOrElse(Task.Id.forRunSpec(appId)),
-        reservation = reservation,
         status = Task.Status(Timestamp.now(), condition = Condition.Reserved, networkInfo = NetworkInfoPlaceholder()),
         runSpecVersion = Timestamp.now())
 
-    def newReservation: Task.Reservation = Task.Reservation(Seq.empty, taskReservationStateNew)
+    def newReservation: ReservationInfo = ReservationInfo(Seq.empty, noReservationLabels, noReservationTimeout)
 
-    def taskReservationStateNew = Task.Reservation.State.New(timeout = None)
+    def noReservationTimeout = ReservationInfo.Timeout.Empty
+    def noReservationLabels = Map.empty[String, String]
 
-    def residentReservedTask(appId: PathId, taskReservationState: Task.Reservation.State, localVolumeIds: Task.LocalVolumeId*) =
-      minimalReservedTask(appId, Task.Reservation(localVolumeIds.to[Seq], taskReservationState))
-
-    def residentLaunchedTask(appId: PathId, localVolumeIds: Task.LocalVolumeId*) = {
-      val now = Timestamp.now()
-      Task.LaunchedOnReservation(
-        taskId = Task.Id.forRunSpec(appId),
-        runSpecVersion = now,
-        status = Task.Status(
-          stagedAt = now,
-          startedAt = Some(now),
-          mesosStatus = None,
-          condition = Condition.Running,
-          networkInfo = NetworkInfoPlaceholder()
-        ),
-        reservation = Task.Reservation(localVolumeIds.to[Seq], Task.Reservation.State.Launched))
-    }
-
-    def residentUnreachableTask(appId: PathId, localVolumeIds: Task.LocalVolumeId*) = {
-      val now = Timestamp.now()
-      Task.LaunchedOnReservation(
-        taskId = Task.Id.forRunSpec(appId),
-        runSpecVersion = now,
-        status = Task.Status(
-          stagedAt = now,
-          startedAt = Some(now),
-          mesosStatus = None,
-          condition = Condition.Unreachable,
-          networkInfo = NetworkInfoPlaceholder()
-        ),
-        reservation = Task.Reservation(localVolumeIds.to[Seq], Task.Reservation.State.Launched))
-    }
-
-    def startingTaskForApp(instanceId: Instance.Id, appVersion: Timestamp = Timestamp(1), stagedAt: Long = 2, container: Option[MesosContainer] = None): Task.LaunchedEphemeral =
+    def startingTaskForApp(instanceId: Instance.Id, appVersion: Timestamp = Timestamp(1), stagedAt: Long = 2, container: Option[MesosContainer] = None): Task =
       startingTask(
         Task.Id.forInstanceId(instanceId, container),
         appVersion = appVersion,
         stagedAt = stagedAt
       )
 
-    def startingTask(taskId: Task.Id, appVersion: Timestamp = Timestamp(1), stagedAt: Long = 2): Task.LaunchedEphemeral =
-      Task.LaunchedEphemeral(
+    def startingTask(taskId: Task.Id, appVersion: Timestamp = Timestamp(1), stagedAt: Long = 2): Task =
+      Task(
         taskId = taskId,
         runSpecVersion = appVersion,
         status = Task.Status(
@@ -335,14 +277,14 @@ object TestTaskBuilder {
       )
 
     def stagedTaskForApp(
-      appId: PathId = PathId("/test"), appVersion: Timestamp = Timestamp(1), stagedAt: Long = 2): Task.LaunchedEphemeral =
+      appId: PathId = PathId("/test"), appVersion: Timestamp = Timestamp(1), stagedAt: Long = 2): Task =
       stagedTask(Task.Id.forRunSpec(appId), appVersion = appVersion, stagedAt = stagedAt)
 
     def stagedTask(
       taskId: Task.Id,
       appVersion: Timestamp = Timestamp(1),
-      stagedAt: Long = 2): Task.LaunchedEphemeral =
-      Task.LaunchedEphemeral(
+      stagedAt: Long = 2): Task =
+      Task(
         taskId = taskId,
         runSpecVersion = appVersion,
         status = Task.Status(
@@ -369,7 +311,7 @@ object TestTaskBuilder {
       appId: PathId = PathId("/test"),
       appVersion: Timestamp = Timestamp(1),
       stagedAt: Long = 2,
-      startedAt: Long = 3): Task.LaunchedEphemeral =
+      startedAt: Long = 3): Task =
       runningTask(
         Task.Id.forRunSpec(appId),
         appVersion = appVersion,
@@ -381,7 +323,7 @@ object TestTaskBuilder {
       taskId: Task.Id,
       appVersion: Timestamp = Timestamp(1),
       stagedAt: Long = 2,
-      startedAt: Long = 3): Task.LaunchedEphemeral = {
+      startedAt: Long = 3): Task = {
       import mesosphere.marathon.test.MarathonTestHelper.Implicits._
 
       startingTask(taskId, appVersion, stagedAt)
@@ -398,7 +340,7 @@ object TestTaskBuilder {
       taskId: Task.Id,
       appVersion: Timestamp = Timestamp(1),
       stagedAt: Long = 2,
-      startedAt: Long = 3): Task.LaunchedEphemeral = {
+      startedAt: Long = 3): Task = {
 
       startingTask(taskId, appVersion, stagedAt)
         .withStatus((status: Task.Status) =>
@@ -410,9 +352,9 @@ object TestTaskBuilder {
         )
     }
 
-    def healthyTask(appId: PathId): Task.LaunchedEphemeral = healthyTask(Task.Id.forRunSpec(appId))
+    def healthyTask(appId: PathId): Task = healthyTask(Task.Id.forRunSpec(appId))
 
-    def healthyTask(taskId: Task.Id): Task.LaunchedEphemeral = {
+    def healthyTask(taskId: Task.Id): Task = {
       import mesosphere.marathon.test.MarathonTestHelper.Implicits._
 
       runningTask(taskId).withStatus { status =>
@@ -420,9 +362,9 @@ object TestTaskBuilder {
       }
     }
 
-    def unhealthyTask(appId: PathId): Task.LaunchedEphemeral = unhealthyTask(Task.Id.forRunSpec(appId))
+    def unhealthyTask(appId: PathId): Task = unhealthyTask(Task.Id.forRunSpec(appId))
 
-    def unhealthyTask(taskId: Task.Id): Task.LaunchedEphemeral = {
+    def unhealthyTask(taskId: Task.Id): Task = {
       import mesosphere.marathon.test.MarathonTestHelper.Implicits._
 
       runningTask(taskId).withStatus { status =>

@@ -400,7 +400,7 @@ class AppInfoBaseDataTest extends UnitTest with GroupCreation {
       val instanceId = Instance.Id.forRunSpec(pod.id)
       val tasks: Map[Task.Id, Task] = pod.containers.map { ct =>
         val taskId = Task.Id.forInstanceId(instanceId, Some(ct))
-        taskId -> Task.LaunchedEphemeral(
+        taskId -> Task(
           taskId = taskId,
           runSpecVersion = pod.version,
           status = Task.Status.apply(

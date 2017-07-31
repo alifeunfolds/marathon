@@ -33,8 +33,8 @@ class OfferProcessorImplTest extends UnitTest {
   private[this] val taskInfo2 = MarathonTestHelper.makeOneCPUTask(Task.Id.forInstanceId(instanceId2, None)).build()
   private[this] val instance1 = TestInstanceBuilder.newBuilderWithInstanceId(instanceId1).addTaskWithBuilder().taskFromTaskInfo(taskInfo1).build().getInstance()
   private[this] val instance2 = TestInstanceBuilder.newBuilderWithInstanceId(instanceId2).addTaskWithBuilder().taskFromTaskInfo(taskInfo2).build().getInstance()
-  private[this] val task1: Task.LaunchedEphemeral = instance1.appTask
-  private[this] val task2: Task.LaunchedEphemeral = instance2.appTask
+  private[this] val task1: Task = instance1.appTask
+  private[this] val task2: Task = instance2.appTask
 
   private[this] val tasks = Seq((taskInfo1, task1, instance1), (taskInfo2, task2, instance2))
 
@@ -52,7 +52,7 @@ class OfferProcessorImplTest extends UnitTest {
 
   object f {
     import org.apache.mesos.{ Protos => Mesos }
-    val launch = new InstanceOpFactoryHelper(Some("principal"), Some("role")).launchEphemeral(_: Mesos.TaskInfo, _: Task.LaunchedEphemeral, _: Instance)
+    val launch = new InstanceOpFactoryHelper(Some("principal"), Some("role")).launchEphemeral(_: Mesos.TaskInfo, _: Task, _: Instance)
     val launchWithOldTask = new InstanceOpFactoryHelper(Some("principal"), Some("role")).launchOnReservation _
   }
 
@@ -140,7 +140,7 @@ class OfferProcessorImplTest extends UnitTest {
       val dummySource = new DummySource
       val tasksWithSource = tasks.map {
         case (taskInfo, _, _) =>
-          val dummyInstance = TestInstanceBuilder.newBuilder(appId).addTaskResidentReserved().getInstance()
+          val dummyInstance = TestInstanceBuilder.newBuilder(appId).addTaskCreated().withReservation().getInstance()
           val updateOperation = InstanceUpdateOperation.LaunchOnReservation(
             instanceId = dummyInstance.instanceId,
             runSpecVersion = clock.now(),

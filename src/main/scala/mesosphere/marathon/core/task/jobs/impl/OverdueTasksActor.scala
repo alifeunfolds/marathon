@@ -94,11 +94,8 @@ private[jobs] object OverdueTasksActor {
     }
 
     private[this] def overdueReservations(now: Timestamp, instances: Seq[Instance]): Seq[Instance] = {
-      // TODO PODs is an Instance overdue if a single task is overdue? / move reservation to instance level
       instances.filter { instance =>
-        Task.reservedTasks(instance.tasksMap.values).exists { (task: Task.Reserved) =>
-          task.reservation.state.timeout.exists(_.deadline <= now)
-        }
+        instance.reservationInfo.exists(_.timeout.exists(_.deadline <= now))
       }
     }
   }

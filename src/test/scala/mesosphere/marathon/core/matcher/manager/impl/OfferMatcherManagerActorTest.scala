@@ -9,10 +9,10 @@ import akka.testkit.TestActorRef
 import akka.util.Timeout
 import mesosphere.AkkaUnitTest
 import mesosphere.marathon.core.base.ConstantClock
+import mesosphere.marathon.core.instance.LocalVolumeId
 import mesosphere.marathon.core.matcher.base.OfferMatcher
 import mesosphere.marathon.core.matcher.base.util.ActorOfferMatcher
 import mesosphere.marathon.core.matcher.manager.OfferMatcherManagerConfig
-import mesosphere.marathon.core.task.Task.LocalVolumeId
 import mesosphere.marathon.state.PathId
 import mesosphere.marathon.test.MarathonTestHelper
 import org.apache.mesos.Protos.Offer

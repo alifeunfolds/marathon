@@ -4,7 +4,7 @@ package api.v2.json
 import mesosphere.UnitTest
 import mesosphere.marathon.api.JsonTestHelper
 import mesosphere.marathon.core.appinfo.EnrichedTask
-import mesosphere.marathon.core.instance.{ Instance, TestInstanceBuilder }
+import mesosphere.marathon.core.instance.{ Instance, LocalVolumeId, TestInstanceBuilder }
 import mesosphere.marathon.core.task.Task
 import mesosphere.marathon.core.task.state.NetworkInfo
 import mesosphere.marathon.state.{ AppDefinition, PathId, Timestamp }
@@ -60,12 +60,12 @@ class EnrichedTaskWritesTest extends UnitTest {
     }
 
     val taskWithLocalVolumes = {
-      val localVolumeId = Task.LocalVolumeId.unapply("appid#container#random").value
+      val localVolumeId = LocalVolumeId.unapply("appid#container#random").value
       val instance = TestInstanceBuilder.newBuilder(runSpecId = runSpecId, version = time)
         .withAgentInfo(agentInfo)
-        .addTaskWithBuilder()
-        .taskResidentLaunched(localVolumeId)
-        .build().getInstance()
+        .addTaskLaunched()
+        .withReservation(localVolumeIds = Seq(localVolumeId))
+        .getInstance()
       EnrichedTask(runSpecId, instance.appTask, agentInfo, healthCheckResults = Nil, servicePorts = Nil)
     }
   }

@@ -8,8 +8,7 @@ import akka.testkit.TestProbe
 import mesosphere.AkkaUnitTest
 import mesosphere.marathon.core.base.ConstantClock
 import mesosphere.marathon.core.instance.update.{ InstanceUpdateEffect, InstanceUpdateOperation }
-import mesosphere.marathon.core.instance.{ Instance, TestInstanceBuilder }
-import mesosphere.marathon.core.task.Task
+import mesosphere.marathon.core.instance.{ Instance, ReservationInfo, TestInstanceBuilder }
 import mesosphere.marathon.core.task.termination.{ KillReason, KillService }
 import mesosphere.marathon.core.task.tracker.InstanceTracker.InstancesBySpec
 import mesosphere.marathon.core.task.tracker.{ InstanceTracker, TaskStateOpProcessor }
@@ -163,11 +162,11 @@ class OverdueTasksActorTest extends AkkaUnitTest {
     }
   }
   private[this] def reservedWithTimeout(appId: PathId, deadline: Timestamp): Instance = {
-    val state = Task.Reservation.State.New(timeout = Some(Task.Reservation.Timeout(
+    val timeout = ReservationInfo.Timeout(
       initiated = Timestamp.zero,
       deadline = deadline,
-      reason = Task.Reservation.Timeout.Reason.ReservationTimeout
-    )))
-    TestInstanceBuilder.newBuilder(appId).addTaskWithBuilder().taskResidentReserved(state).build().getInstance()
+      reason = ReservationInfo.Timeout.Reason.ReservationTimeout
+    )
+    TestInstanceBuilder.newBuilder(appId).addTaskCreated().withReservation(timeout = Some(timeout)).getInstance()
   }
 }

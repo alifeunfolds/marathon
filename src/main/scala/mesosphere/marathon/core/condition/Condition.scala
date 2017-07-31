@@ -48,22 +48,22 @@ object Condition {
   sealed trait Failure extends Terminal
   sealed trait Active extends Condition
 
-  /** Reserved: Task with persistent volume has reservation, but is not launched yet */
+  /** Reserved: Instance with persistent volume has reservation, but is not launched yet */
   case object Reserved extends Condition
 
-  /** Created: Task is known in marathon and sent to mesos, but not staged yet */
+  /** Created: Instance is known in marathon and sent to mesos, but not staged yet */
   case object Created extends Active
 
   /** Error: indicates that a task launch attempt failed because of an error in the task specification */
   case object Error extends Failure
 
-  /** Failed: task aborted with an error */
+  /** Failed: Instance aborted with an error */
   case object Failed extends Failure
 
-  /** Finished: task completes successfully */
+  /** Finished: Instance completes successfully */
   case object Finished extends Terminal
 
-  /** Killed: task was killed */
+  /** Killed: Instance was killed */
   case object Killed extends Terminal
 
   /** Killing: the request to kill the task has been received, but the task has not yet been killed */
@@ -78,7 +78,7 @@ object Condition {
     */
   case object Staging extends Active
 
-  /** Starting: task is currently starting */
+  /** Starting: Instance is currently starting */
   case object Starting extends Active
 
   /** Unreachable: the master has not heard from the agent running the task for a configurable period of time */
@@ -129,7 +129,6 @@ object Condition {
 
   // scalastyle:off
   def apply(str: String): Condition = str.toLowerCase match {
-    case "reserved" => Reserved
     case "created" => Created
     case "error" => Error
     case "failed" => Failed

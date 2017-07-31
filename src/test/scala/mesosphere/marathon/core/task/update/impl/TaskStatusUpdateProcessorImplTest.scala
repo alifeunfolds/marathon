@@ -5,8 +5,7 @@ import mesosphere.AkkaUnitTest
 import mesosphere.marathon.core.base.ConstantClock
 import mesosphere.marathon.core.event.MarathonEvent
 import mesosphere.marathon.core.instance.update.{ InstanceUpdateEffect, InstanceUpdateOperation }
-import mesosphere.marathon.core.instance.{ TestInstanceBuilder, TestTaskBuilder }
-import mesosphere.marathon.core.task.Task
+import mesosphere.marathon.core.instance.TestInstanceBuilder
 import mesosphere.marathon.core.task.bus.{ MesosTaskStatusTestHelper, TaskStatusUpdateTestHelper }
 import mesosphere.marathon.core.task.termination.{ KillReason, KillService }
 import mesosphere.marathon.core.task.tracker.{ InstanceTracker, TaskStateOpProcessor }
@@ -257,7 +256,7 @@ class TaskStatusUpdateProcessorImplTest extends AkkaUnitTest {
     // TODO: it should be up to the Task.update function to determine whether the received update makes sense
     "receiving an update for known reserved task" in new Fixture {
       val appId = PathId("/app")
-      val instance = TestInstanceBuilder.newBuilder(appId).addTaskReserved(Task.Reservation(Seq.empty, TestTaskBuilder.Helper.taskReservationStateNew)).getInstance()
+      val instance = TestInstanceBuilder.newBuilder(appId).addTaskCreated().withReservation().getInstance()
       val status = MesosTaskStatusTestHelper.finished(instance.appTask.taskId)
 
       taskTracker.instance(instance.instanceId) returns Future.successful(Some(instance))

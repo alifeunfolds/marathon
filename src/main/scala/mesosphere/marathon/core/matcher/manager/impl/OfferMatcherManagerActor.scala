@@ -6,12 +6,12 @@ import akka.event.LoggingReceive
 import akka.pattern.pipe
 import com.typesafe.scalalogging.StrictLogging
 import mesosphere.marathon.core.base.Clock
+import mesosphere.marathon.core.instance.LocalVolumeId
 import mesosphere.marathon.core.matcher.base.OfferMatcher
 import mesosphere.marathon.core.matcher.base.OfferMatcher.{ InstanceOpWithSource, MatchedInstanceOps }
 import mesosphere.marathon.core.matcher.base.util.ActorOfferMatcher
 import mesosphere.marathon.core.matcher.manager.OfferMatcherManagerConfig
 import mesosphere.marathon.core.matcher.manager.impl.OfferMatcherManagerActor.{ CleanUpOverdueOffers, MatchOfferData, UnprocessedOffer }
-import mesosphere.marathon.core.task.Task.LocalVolumeId
 import mesosphere.marathon.metrics.{ Metrics, ServiceMetric, SettableGauge }
 import mesosphere.marathon.state.{ PathId, Timestamp }
 import mesosphere.marathon.stream.Implicits._

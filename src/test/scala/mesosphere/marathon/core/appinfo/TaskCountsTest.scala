@@ -190,7 +190,7 @@ object Fixture {
   implicit class TaskImplicits(val task: Task) extends AnyVal {
     def toInstance: Instance = LegacyAppInstance(
       task, AgentInfo(host = "host", agentId = Some("agent"), attributes = Nil),
-      UnreachableStrategy.default(resident = task.reservationWithVolumes.nonEmpty),
+      UnreachableStrategy.default(),
       ReservationInfo.Empty
     )
   }
@@ -199,7 +199,7 @@ object Fixture {
 class Fixture {
   val runSpecId = PathId("/test")
   val taskId = Task.Id.forRunSpec(runSpecId)
-  val taskWithoutState = Task.LaunchedEphemeral(
+  val taskWithoutState = Task(
     taskId = taskId,
     runSpecVersion = Timestamp(0),
     status = Task.Status(

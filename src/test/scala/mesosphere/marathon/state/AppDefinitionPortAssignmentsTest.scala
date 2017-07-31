@@ -2,7 +2,7 @@ package mesosphere.marathon
 package state
 
 import mesosphere.UnitTest
-import mesosphere.marathon.core.instance.TestTaskBuilder
+import mesosphere.marathon.core.instance.{ TestInstanceBuilder, TestTaskBuilder }
 import mesosphere.marathon.core.pod.{ BridgeNetwork, ContainerNetwork }
 import mesosphere.marathon.core.task.state.NetworkInfo
 import mesosphere.marathon.state.Container.PortMapping
@@ -84,12 +84,13 @@ class AppDefinitionPortAssignmentsTest extends UnitTest {
       task.status.networkInfo.portAssignments(app, includeUnresolved = true) should be(empty)
     }
 
-    "portAssignments with a reserved task" in {
+    "portAssignments with a reserved instance" in {
       Given("An app requesting one port through port definitions")
       val app = MarathonTestHelper.makeBasicApp()
 
-      Given("A reserved task")
-      val task = TestTaskBuilder.Helper.minimalReservedTask(app.id, TestTaskBuilder.Helper.newReservation)
+      Given("A reserved instance")
+      val instance = TestInstanceBuilder.newBuilder(app.id).addTaskCreated().withReservation().getInstance()
+      val task = instance.appTask
 
       Then("The port assignments are empty")
       task.status.networkInfo.portAssignments(app, includeUnresolved = true) should be(empty)

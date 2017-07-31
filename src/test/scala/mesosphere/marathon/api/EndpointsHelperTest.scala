@@ -35,7 +35,7 @@ class EndpointsHelperTest extends UnitTest {
             case (portOption, _) => portOption
           }
           val taskId = Task.Id.forInstanceId(instanceId, None)
-          val task = Task.LaunchedEphemeral(taskId, runSpecVersion = Timestamp.zero, status = Task.Status(
+          val task = Task(taskId, runSpecVersion = Timestamp.zero, status = Task.Status(
             stagedAt = Timestamp.zero, startedAt = None, mesosStatus = None, condition = Condition.Running,
             networkInfo = NetworkInfo(hostname, hostPorts = hostPorts, ipAddresses = ipAddresses)
           ))

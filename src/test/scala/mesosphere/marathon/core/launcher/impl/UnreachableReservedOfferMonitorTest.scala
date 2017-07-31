@@ -42,8 +42,8 @@ class UnreachableReservedOfferMonitorTest extends AkkaUnitTest with Inside {
   def newBuilder =
     TestInstanceBuilder.newBuilder(appId).withAgentInfo(agentInfo)
 
-  val runningInstance = newBuilder.addTaskResidentLaunched().getInstance
-  val unreachableInstance = newBuilder.addTaskResidentUnreachable().getInstance
+  val runningInstance = newBuilder.addTaskLaunched().withReservation().getInstance
+  val unreachableInstance = newBuilder.addTaskUnreachable().withReservation().getInstance
 
   def reservedOffer(instances: Seq[Instance]) = {
     val b = MarathonTestHelper.makeBasicOffer(role = "marathon").clearResources()

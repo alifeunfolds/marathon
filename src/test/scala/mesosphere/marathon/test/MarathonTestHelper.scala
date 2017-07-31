@@ -11,7 +11,7 @@ import mesosphere.marathon.api.JsonTestHelper
 import mesosphere.marathon.core.async.ExecutionContexts
 import mesosphere.marathon.core.base.Clock
 import mesosphere.marathon.core.condition.Condition
-import mesosphere.marathon.core.instance.{ Instance, ReservationInfo }
+import mesosphere.marathon.core.instance.{ Instance, LocalVolumeId, ReservationInfo }
 import mesosphere.marathon.core.instance.Instance.InstanceState
 import mesosphere.marathon.core.instance.update.InstanceChangeHandler
 import mesosphere.marathon.core.launcher.impl.{ ReservationLabels, TaskLabels }
@@ -359,7 +359,7 @@ object MarathonTestHelper {
     createTaskTrackerModule(leadershipModule, store).instanceTracker
   }
 
-  def persistentVolumeResources(taskId: Task.Id, localVolumeIds: Task.LocalVolumeId*) = localVolumeIds.map { id =>
+  def persistentVolumeResources(taskId: Task.Id, localVolumeIds: LocalVolumeId*) = localVolumeIds.map { id =>
     Mesos.Resource.newBuilder()
       .setName("disk")
       .setType(Mesos.Value.Type.SCALAR)
@@ -379,14 +379,14 @@ object MarathonTestHelper {
       .build()
   }
 
-  def offerWithVolumes(taskId: Task.Id, localVolumeIds: Task.LocalVolumeId*) = {
+  def offerWithVolumes(taskId: Task.Id, localVolumeIds: LocalVolumeId*) = {
     MarathonTestHelper.makeBasicOffer(
       reservation = Some(TaskLabels.labelsForTask(frameworkId, taskId)),
       role = "test"
     ).addAllResources(persistentVolumeResources(taskId, localVolumeIds: _*).asJava).build()
   }
 
-  def offerWithVolumesOnly(taskId: Task.Id, localVolumeIds: Task.LocalVolumeId*) = {
+  def offerWithVolumesOnly(taskId: Task.Id, localVolumeIds: LocalVolumeId*) = {
     MarathonTestHelper.makeBasicOffer()
       .clearResources()
       .addAllResources(persistentVolumeResources(taskId, localVolumeIds: _*).asJava)
@@ -454,11 +454,7 @@ object MarathonTestHelper {
     implicit class TaskImprovements(task: Task) {
       def withNetworkInfo(networkInfo: core.task.state.NetworkInfo): Task = {
         val newStatus = task.status.copy(networkInfo = networkInfo)
-        task match {
-          case launchedEphemeral: Task.LaunchedEphemeral => launchedEphemeral.copy(status = newStatus)
-          case launchedOnReservation: Task.LaunchedOnReservation => launchedOnReservation.copy(status = newStatus)
-          case reserved: Task.Reserved => reserved.copy(status = newStatus)
-        }
+        task.copy(status = newStatus)
       }
 
       def withNetworkInfo(hostName: Option[String] = None, hostPorts: Seq[Int] = Nil, networkInfos: scala.collection.Seq[NetworkInfo] = Nil): Task = {
@@ -483,16 +479,7 @@ object MarathonTestHelper {
         withNetworkInfo(networkInfo).withStatus(_.copy(mesosStatus = taskStatus))
       }
 
-      def withStatus[T <: Task](update: Task.Status => Task.Status): T = task match {
-        case launchedEphemeral: Task.LaunchedEphemeral =>
-          launchedEphemeral.copy(status = update(launchedEphemeral.status)).asInstanceOf[T]
-
-        case launchedOnReservation: Task.LaunchedOnReservation =>
-          launchedOnReservation.copy(status = update(launchedOnReservation.status)).asInstanceOf[T]
-
-        case reserved: Task.Reserved =>
-          throw new scala.RuntimeException("Reserved task cannot have a status")
-      }
+      def withStatus(update: Task.Status => Task.Status): Task = task.copy(status = update(task.status))
 
     }
   }

@@ -527,8 +527,8 @@ class SchedulerActions(
   */
 object TaskStatusCollector {
   def collectTaskStatusFor(instances: Seq[Instance]): Seq[mesos.Protos.TaskStatus] = {
-    instances.flatMap { instance =>
-      instance.tasksMap.values.withFilter(task => !task.isTerminal && !task.isReserved).map { task =>
+    instances.filter(!_.isReserved).flatMap { instance =>
+      instance.tasksMap.values.withFilter(task => !task.isTerminal).map { task =>
         task.status.mesosStatus.getOrElse(initialMesosStatusFor(task, instance.agentInfo))
       }
     }(collection.breakOut)

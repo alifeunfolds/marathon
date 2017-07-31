@@ -126,9 +126,7 @@ trait Formats
     if (task.status.networkInfo.ipAddresses.nonEmpty) {
       fields.update("ipAddresses", task.status.networkInfo.ipAddresses)
     }
-    task.reservationWithVolumes.foreach { reservation =>
-      fields.update("localVolumes", reservation.volumeIds)
-    }
+    throw new RuntimeException("reservation has moved to instance and cannot be serialized! Needs to be fixed!")
 
     Json.obj(fields.to[Seq]: _*)
   }

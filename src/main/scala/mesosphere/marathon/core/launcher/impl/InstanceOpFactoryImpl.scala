@@ -93,7 +93,7 @@ class InstanceOpFactoryImpl(
       case matches: ResourceMatchResponse.Match =>
         val taskBuilder = new TaskBuilder(app, Task.Id.forRunSpec, config, runSpecTaskProc)
         val (taskInfo, networkInfo) = taskBuilder.build(request.offer, matches.resourceMatch, None)
-        val task = Task.LaunchedEphemeral(
+        val task = Task(
           taskId = Task.Id(taskInfo.getTaskId),
           runSpecVersion = runSpec.version,
           status = Task.Status(
@@ -234,17 +234,11 @@ class InstanceOpFactoryImpl(
       }
     val localVolumeIds = localVolumes.map { case (_, localVolume) => localVolume.id }
     val now = clock.now()
-    val taskTimeout = Task.Reservation.Timeout(
-      initiated = now,
-      deadline = now + config.taskReservationTimeout().millis,
-      reason = Task.Reservation.Timeout.Reason.ReservationTimeout
-    )
     val agentInfo = Instance.AgentInfo(offer)
     val hostPorts = resourceMatch.hostPorts.flatten
     val networkInfo = NetworkInfo(offer.getHostname, hostPorts, ipAddresses = Nil)
-    val task = Task.Reserved(
+    val task = Task(
       taskId = Task.Id.forRunSpec(runSpec.id),
-      reservation = Task.Reservation(Seq.empty, Task.Reservation.State.New(timeout = Some(taskTimeout))),
       status = Task.Status(
         stagedAt = now,
         condition = Condition.Reserved,
@@ -253,7 +247,6 @@ class InstanceOpFactoryImpl(
       runSpecVersion = runSpec.version
     )
 
-    import scala.concurrent.duration._
     val timeout = ReservationInfo.Timeout(
       initiated = now,
       deadline = now + config.taskReservationTimeout().millis,
@@ -326,7 +319,7 @@ object InstanceOpFactoryImpl {
         }.getOrElse(Seq.empty[Int])
 
         val networkInfo = NetworkInfo(agentInfo.host, taskHostPorts, ipAddresses = Nil)
-        val task = Task.LaunchedEphemeral(
+        val task = Task(
           taskId = taskId,
           runSpecVersion = pod.version,
           status = Task.Status(stagedAt = since, condition = Condition.Created, networkInfo = networkInfo)

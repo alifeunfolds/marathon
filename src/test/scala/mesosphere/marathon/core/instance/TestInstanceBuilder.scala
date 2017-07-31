@@ -4,10 +4,12 @@ package core.instance
 import mesosphere.marathon.core.condition.Condition
 import mesosphere.marathon.core.instance.Instance.{ AgentInfo, InstanceState, LegacyInstanceImprovement }
 import mesosphere.marathon.core.instance.update.{ InstanceUpdateOperation, InstanceUpdater }
+import mesosphere.marathon.core.launcher.impl.TaskLabels
 import mesosphere.marathon.core.pod.MesosContainer
 import mesosphere.marathon.core.task.Task
 import mesosphere.marathon.core.task.state.NetworkInfoPlaceholder
 import mesosphere.marathon.state.{ PathId, Timestamp, UnreachableStrategy }
+import mesosphere.util.state.FrameworkId
 import org.apache.mesos
 
 import scala.collection.immutable.Seq
@@ -17,20 +19,10 @@ case class TestInstanceBuilder(
     instance: Instance, now: Timestamp = Timestamp.now()
 ) {
 
+  // TestInstanceBuilder.addTaskCreated().withReservation()
+
   def addTaskLaunched(container: Option[MesosContainer] = None): TestInstanceBuilder =
     addTaskWithBuilder().taskLaunched(container).build()
-
-  def addTaskReserved(reservation: Task.Reservation = TestTaskBuilder.Helper.newReservation, containerName: Option[String] = None): TestInstanceBuilder =
-    addTaskWithBuilder().taskReserved(reservation, containerName).build()
-
-  def addTaskResidentReserved(localVolumeIds: Task.LocalVolumeId*): TestInstanceBuilder =
-    addTaskWithBuilder().taskResidentReserved(localVolumeIds: _*).build()
-
-  def addTaskResidentLaunched(localVolumeIds: Task.LocalVolumeId*): TestInstanceBuilder =
-    addTaskWithBuilder().taskResidentLaunched(localVolumeIds: _*).build()
-
-  def addTaskResidentUnreachable(localVolumeIds: Task.LocalVolumeId*): TestInstanceBuilder =
-    addTaskWithBuilder().taskResidentUnreachable(localVolumeIds: _*).build()
 
   def addTaskRunning(containerName: Option[String] = None, stagedAt: Timestamp = now, startedAt: Timestamp = now): TestInstanceBuilder =
     addTaskWithBuilder().taskRunning(containerName, stagedAt, startedAt).build()
@@ -84,6 +76,20 @@ case class TestInstanceBuilder(
 
   private[instance] def addTask(task: Task): TestInstanceBuilder = {
     this.copy(instance = InstanceUpdater.updatedInstance(instance, task, now + 1.second))
+  }
+
+  val defaultLocalVolumeId = LocalVolumeId(instance.runSpecId, "persistent-volume", "uuid")
+
+  def withReservation(
+    localVolumeIds: Seq[LocalVolumeId] = Seq(defaultLocalVolumeId),
+    timeout: Option[ReservationInfo.Timeout] = ReservationInfo.Timeout.Empty
+  ): TestInstanceBuilder = {
+    val taskId = instance.tasksMap.headOption.map(_._1).getOrElse(throw new RuntimeException("Add a task before you call withReservation!"))
+    val reservationInfo = ReservationInfo(
+      volumeIds = localVolumeIds,
+      labels = TaskLabels.labelsForTask(FrameworkId("marathon"), taskId).labels,
+      timeout = timeout)
+    this.copy(instance = instance.copy(reservationInfo = Some(reservationInfo)))
   }
 
   def getInstance() = instance

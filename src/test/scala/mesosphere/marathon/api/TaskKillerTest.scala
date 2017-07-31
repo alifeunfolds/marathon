@@ -130,7 +130,7 @@ class TaskKillerTest extends UnitTest {
       val f = new Fixture
       val appId = PathId(List("my", "app"))
       val runningInstance: Instance = TestInstanceBuilder.newBuilder(appId).addTaskRunning().getInstance()
-      val reservedInstance: Instance = TestInstanceBuilder.newBuilder(appId).addTaskReserved().getInstance()
+      val reservedInstance: Instance = TestInstanceBuilder.newBuilder(appId).addTaskCreated().withReservation().getInstance()
       val instancesToKill = Seq(runningInstance, reservedInstance)
       val launchedInstances = Seq(runningInstance)
       val expungeRunning = InstanceUpdateOperation.ForceExpunge(runningInstance.instanceId)

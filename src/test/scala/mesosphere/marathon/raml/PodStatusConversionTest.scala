@@ -480,7 +480,7 @@ object PodStatusConversionTest {
         activeSince = if (condition == Condition.Created) None else Some(since),
         healthy = None),
       tasksMap = Seq[Task](
-        Task.LaunchedEphemeral(
+        Task(
           taskIds.head,
           since,
           Task.Status(
@@ -501,8 +501,8 @@ object PodStatusConversionTest {
   } // fakeInstance
 
   def fakeTask(networks: Seq[Protos.NetworkInfo]) = {
-    val taskId = Task.Id.forRunSpec(PathId.empty)
-    Task.LaunchedEphemeral(
+    val taskId = Task.Id.forRunSpec(PathId("/test"))
+    Task(
       taskId = taskId,
       status = Task.Status(
         stagedAt = Timestamp.zero,

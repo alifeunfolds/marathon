@@ -1,7 +1,6 @@
 package mesosphere.mesos
 
-import mesosphere.marathon.core.instance.Instance
-import mesosphere.marathon.core.task.Task.Reservation
+import mesosphere.marathon.core.instance.{ Instance, ReservationInfo }
 import mesosphere.marathon.stream.Implicits._
 import org.apache.mesos.{ Protos => Mesos }
 
@@ -18,7 +17,7 @@ object PersistentVolumeMatcher {
         resource.getDisk.getPersistence.getId -> resource
     }(collection.breakOut)
 
-    def resourcesForReservation(reservation: Reservation): Option[Seq[Mesos.Resource]] = {
+    def resourcesForReservation(reservation: ReservationInfo): Option[Seq[Mesos.Resource]] = {
       if (reservation.volumeIds.map(_.idString).forall(availableVolumes.contains))
         Some(reservation.volumeIds.flatMap(id => availableVolumes.get(id.idString)))
       else
@@ -27,8 +26,7 @@ object PersistentVolumeMatcher {
 
     waitingInstances.toStream
       .flatMap { instance =>
-        // Note this only supports AppDefinition instances with exactly one task
-        instance.tasksMap.values.headOption.flatMap(_.reservationWithVolumes).flatMap { reservation =>
+        instance.reservationInfo.flatMap { reservation =>
           resourcesForReservation(reservation).flatMap(rs => Some(VolumeMatch(instance, rs)))
         }
       }.headOption

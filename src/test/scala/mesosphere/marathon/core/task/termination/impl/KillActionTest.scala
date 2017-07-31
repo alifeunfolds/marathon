@@ -4,7 +4,7 @@ package core.task.termination.impl
 import mesosphere.UnitTest
 import mesosphere.marathon.core.base.ConstantClock
 import mesosphere.marathon.core.instance.{ Instance, TestInstanceBuilder }
-import mesosphere.marathon.core.task.Task.LocalVolumeId
+import mesosphere.marathon.core.instance.LocalVolumeId
 import mesosphere.marathon.state.PathId
 import org.scalatest.prop.TableDrivenPropertyChecks
 
@@ -15,13 +15,12 @@ class KillActionTest extends UnitTest with TableDrivenPropertyChecks {
 
   lazy val localVolumeId = LocalVolumeId(appId, "unwanted-persistent-volume", "uuid1")
   lazy val residentLaunchedInstance: Instance = TestInstanceBuilder.newBuilder(appId).
-    addTaskResidentLaunched(localVolumeId).
+    addTaskRunning().withReservation(localVolumeIds = Seq(localVolumeId)).
     getInstance()
 
   lazy val residentUnreachableInstance: Instance = TestInstanceBuilder.newBuilder(appId).
-    addTaskWithBuilder().
-    taskResidentUnreachable(localVolumeId).
-    build().
+    addTaskUnreachable().
+    withReservation(localVolumeIds = Seq(localVolumeId)).
     getInstance()
 
   lazy val unreachableInstance: Instance = TestInstanceBuilder.newBuilder(appId).addTaskUnreachable().getInstance()
