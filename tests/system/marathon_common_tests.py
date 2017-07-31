@@ -185,11 +185,11 @@ def test_docker_dns_mapping(marathon_service_name):
 
     @retrying.retry(stop_max_attempt_number=30, retry_on_exception=common.ignore_exception)
     def check_dns():
-        dnsname = "{}.{}.mesos".format(app_id, marathon_service_name)
+        dnsname = '{}.{}.mesos'.format(app_id, marathon_service_name)
         cmd = 'ping -c 1 {}'.format(dnsname)
-        shakedown.wait_for_dns('{}.{}.mesos'.format(app_id, marathon_service_name))
+        shakedown.wait_for_dns('{}'.format(dnsname))
         status, output = shakedown.run_command_on_master(cmd)
-        assert status, "ping failed for app using DNS lookup: {}".format(dnsname)
+        assert status, 'ping failed for app using DNS lookup: {}'.format(dnsname)
 
     check_dns()
 
