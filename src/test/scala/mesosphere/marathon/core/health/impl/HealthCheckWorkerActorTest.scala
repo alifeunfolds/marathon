@@ -8,7 +8,7 @@ import akka.testkit.{ ImplicitSender, TestActorRef }
 import mesosphere.AkkaUnitTest
 import mesosphere.marathon.core.health.{ HealthResult, Healthy, MarathonTcpHealthCheck, PortReference }
 import mesosphere.marathon.core.instance.Instance.AgentInfo
-import mesosphere.marathon.core.instance.{ LegacyAppInstance, TestTaskBuilder }
+import mesosphere.marathon.core.instance.{ LegacyAppInstance, ReservationInfo, TestTaskBuilder }
 import mesosphere.marathon.core.task.Task
 import mesosphere.marathon.core.task.state.NetworkInfo
 import mesosphere.marathon.state.{ AppDefinition, PathId, PortDefinition, UnreachableStrategy }
@@ -38,7 +38,7 @@ class HealthCheckWorkerActorTest extends AkkaUnitTest with ImplicitSender {
         val hostPorts = Seq(socketPort)
         t.copy(status = t.status.copy(networkInfo = NetworkInfo(hostName, hostPorts, ipAddresses = Nil)))
       }
-      val instance = LegacyAppInstance(task, agentInfo, UnreachableStrategy.default())
+      val instance = LegacyAppInstance(task, agentInfo, UnreachableStrategy.default(), ReservationInfo.Empty)
 
       val ref = TestActorRef[HealthCheckWorkerActor](Props(classOf[HealthCheckWorkerActor], mat))
       ref ! HealthCheckJob(app, instance, MarathonTcpHealthCheck(portIndex = Some(PortReference(0))))
@@ -68,7 +68,7 @@ class HealthCheckWorkerActorTest extends AkkaUnitTest with ImplicitSender {
         val hostPorts = Seq(socketPort)
         t.copy(status = t.status.copy(networkInfo = NetworkInfo(hostName, hostPorts, ipAddresses = Nil)))
       }
-      val instance = LegacyAppInstance(task, agentInfo, UnreachableStrategy.default())
+      val instance = LegacyAppInstance(task, agentInfo, UnreachableStrategy.default(), ReservationInfo.Empty)
 
       val ref = TestActorRef[HealthCheckWorkerActor](Props(classOf[HealthCheckWorkerActor], mat))
       ref ! HealthCheckJob(app, instance, MarathonTcpHealthCheck(portIndex = Some(PortReference(0))))

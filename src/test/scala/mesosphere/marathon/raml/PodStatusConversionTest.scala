@@ -5,7 +5,7 @@ import mesosphere.UnitTest
 import mesosphere.marathon.core.base.ConstantClock
 import mesosphere.marathon.core.condition.Condition
 import mesosphere.marathon.core.health.{ MesosCommandHealthCheck, MesosHttpHealthCheck, PortReference }
-import mesosphere.marathon.core.instance.Instance
+import mesosphere.marathon.core.instance.{ Instance, ReservationInfo }
 import mesosphere.marathon.core.pod.{ ContainerNetwork, MesosContainer, PodDefinition }
 import mesosphere.marathon.core.task.Task
 import mesosphere.marathon.core.task.state.NetworkInfoPlaceholder
@@ -493,7 +493,8 @@ object PodStatusConversionTest {
         )
       ).map(t => t.taskId -> t)(collection.breakOut),
       runSpecVersion = pod.version,
-      unreachableStrategy = state.UnreachableStrategy.default()
+      unreachableStrategy = state.UnreachableStrategy.default(),
+      reservationInfo = ReservationInfo.Empty
     )
 
     InstanceFixture(since, agentInfo, taskIds, instance)

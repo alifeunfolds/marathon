@@ -27,7 +27,8 @@ case class Instance(
     state: InstanceState,
     tasksMap: Map[Task.Id, Task],
     runSpecVersion: Timestamp,
-    unreachableStrategy: UnreachableStrategy) extends MarathonState[Protos.Json, Instance] with Placed {
+    unreachableStrategy: UnreachableStrategy,
+    reservationInfo: Option[ReservationInfo]) extends MarathonState[Protos.Json, Instance] with Placed {
 
   val runSpecId: PathId = instanceId.runSpecId
   val isLaunched: Boolean = state.condition.isActive
@@ -49,11 +50,7 @@ case class Instance(
   def isDropped: Boolean = state.condition == Condition.Dropped
   def isTerminated: Boolean = state.condition.isTerminal
   def isActive: Boolean = state.condition.isActive
-  def hasReservation =
-    tasksMap.values.exists {
-      case _: Task.ReservedTask => true
-      case _ => false
-    }
+  def hasReservation = reservationInfo.nonEmpty
 
   override def mergeFromProto(message: Protos.Json): Instance = {
     Json.parse(message.getJson).as[Instance]
@@ -324,8 +321,9 @@ object Instance {
       (__ \ "tasksMap").write[Map[Task.Id, Task]] ~
       (__ \ "runSpecVersion").write[Timestamp] ~
       (__ \ "state").write[InstanceState] ~
-      (__ \ "unreachableStrategy").write[raml.UnreachableStrategy]
-    ) { (i) => (i.instanceId, i.agentInfo, i.tasksMap, i.runSpecVersion, i.state, Raml.toRaml(i.unreachableStrategy)) }
+      (__ \ "unreachableStrategy").write[raml.UnreachableStrategy] ~
+      (__ \ "reservationInfo").writeNullable[ReservationInfo]
+    ) { (i) => (i.instanceId, i.agentInfo, i.tasksMap, i.runSpecVersion, i.state, Raml.toRaml(i.unreachableStrategy), i.reservationInfo) }
   }
 
   implicit val unreachableStrategyReads: Reads[Instance] = {
@@ -335,11 +333,12 @@ object Instance {
       (__ \ "tasksMap").read[Map[Task.Id, Task]] ~
       (__ \ "runSpecVersion").read[Timestamp] ~
       (__ \ "state").read[InstanceState] ~
-      (__ \ "unreachableStrategy").readNullable[raml.UnreachableStrategy]
-    ) { (instanceId, agentInfo, tasksMap, runSpecVersion, state, maybeUnreachableStrategy) =>
+      (__ \ "unreachableStrategy").readNullable[raml.UnreachableStrategy] ~
+      (__ \ "reservationInfo").readNullable[ReservationInfo]
+    ) { (instanceId, agentInfo, tasksMap, runSpecVersion, state, maybeUnreachableStrategy, reservationInfo) =>
         val unreachableStrategy = maybeUnreachableStrategy.
           map(Raml.fromRaml(_)).getOrElse(UnreachableStrategy.default())
-        new Instance(instanceId, agentInfo, state, tasksMap, runSpecVersion, unreachableStrategy)
+        new Instance(instanceId, agentInfo, state, tasksMap, runSpecVersion, unreachableStrategy, reservationInfo)
       }
   }
 
@@ -371,11 +370,11 @@ object Instance {
   * @param runSpecVersion the version of the task related runSpec
   */
 object LegacyAppInstance {
-  def apply(task: Task, agentInfo: AgentInfo, unreachableStrategy: UnreachableStrategy): Instance = {
+  def apply(task: Task, agentInfo: AgentInfo, unreachableStrategy: UnreachableStrategy, reservationInfo: Option[ReservationInfo]): Instance = {
     val since = task.status.startedAt.getOrElse(task.status.stagedAt)
     val tasksMap = Map(task.taskId -> task)
     val state = Instance.InstanceState(None, tasksMap, since, unreachableStrategy)
 
-    new Instance(task.taskId.instanceId, agentInfo, state, tasksMap, task.runSpecVersion, unreachableStrategy)
+    new Instance(task.taskId.instanceId, agentInfo, state, tasksMap, task.runSpecVersion, unreachableStrategy, reservationInfo)
   }
 }

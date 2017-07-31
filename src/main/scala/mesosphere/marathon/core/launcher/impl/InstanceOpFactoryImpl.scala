@@ -5,7 +5,7 @@ import mesosphere.marathon.core.base.Clock
 import mesosphere.marathon.core.condition.Condition
 import mesosphere.marathon.core.instance.Instance.{ AgentInfo, InstanceState }
 import mesosphere.marathon.core.instance.update.InstanceUpdateOperation
-import mesosphere.marathon.core.instance.{ Instance, LegacyAppInstance }
+import mesosphere.marathon.core.instance._
 import mesosphere.marathon.core.launcher.{ InstanceOp, InstanceOpFactory, OfferMatchResult }
 import mesosphere.marathon.core.plugin.PluginManager
 import mesosphere.marathon.core.pod.PodDefinition
@@ -104,7 +104,7 @@ class InstanceOpFactoryImpl(
         )
 
         val agentInfo = AgentInfo(offer)
-        val instance = LegacyAppInstance(task, agentInfo, app.unreachableStrategy)
+        val instance = LegacyAppInstance(task, agentInfo, app.unreachableStrategy, ReservationInfo.Empty)
         val instanceOp = taskOperationFactory.launchEphemeral(taskInfo, task, instance)
         OfferMatchResult.Match(app, request.offer, instanceOp, clock.now())
       case matchesNot: ResourceMatchResponse.NoMatch => OfferMatchResult.NoMatch(app, request.offer, matchesNot.reasons, clock.now())
@@ -227,14 +227,14 @@ class InstanceOpFactoryImpl(
     offer: Mesos.Offer,
     resourceMatch: ResourceMatcher.ResourceMatch): InstanceOp = {
 
-    val localVolumes: Seq[(DiskSource, Task.LocalVolume)] =
+    val localVolumes: Seq[(DiskSource, LocalVolume)] =
       resourceMatch.localVolumes.map {
         case (source, volume) =>
-          (source, Task.LocalVolume(Task.LocalVolumeId(runSpec.id, volume), volume))
+          (source, LocalVolume(LocalVolumeId(runSpec.id, volume), volume))
       }
-    val persistentVolumeIds = localVolumes.map { case (_, localVolume) => localVolume.id }
+    val localVolumeIds = localVolumes.map { case (_, localVolume) => localVolume.id }
     val now = clock.now()
-    val timeout = Task.Reservation.Timeout(
+    val taskTimeout = Task.Reservation.Timeout(
       initiated = now,
       deadline = now + config.taskReservationTimeout().millis,
       reason = Task.Reservation.Timeout.Reason.ReservationTimeout
@@ -244,7 +244,7 @@ class InstanceOpFactoryImpl(
     val networkInfo = NetworkInfo(offer.getHostname, hostPorts, ipAddresses = Nil)
     val task = Task.Reserved(
       taskId = Task.Id.forRunSpec(runSpec.id),
-      reservation = Task.Reservation(persistentVolumeIds, Task.Reservation.State.New(timeout = Some(timeout))),
+      reservation = Task.Reservation(Seq.empty, Task.Reservation.State.New(timeout = Some(taskTimeout))),
       status = Task.Status(
         stagedAt = now,
         condition = Condition.Reserved,
@@ -252,6 +252,14 @@ class InstanceOpFactoryImpl(
       ),
       runSpecVersion = runSpec.version
     )
+
+    import scala.concurrent.duration._
+    val timeout = ReservationInfo.Timeout(
+      initiated = now,
+      deadline = now + config.taskReservationTimeout().millis,
+      reason = ReservationInfo.Timeout.Reason.ReservationTimeout
+    )
+    val reservationInfo = ReservationInfo(localVolumeIds, TaskLabels.labelsForTask(frameworkId, task.taskId).labels, Some(timeout))
     val instance = Instance(
       instanceId = task.taskId.instanceId,
       agentInfo = agentInfo,
@@ -263,7 +271,8 @@ class InstanceOpFactoryImpl(
       ),
       tasksMap = Map(task.taskId -> task),
       runSpecVersion = runSpec.version,
-      unreachableStrategy = runSpec.unreachableStrategy
+      unreachableStrategy = runSpec.unreachableStrategy,
+      reservationInfo = Some(reservationInfo)
     )
     val stateOp = InstanceUpdateOperation.Reserve(instance)
     taskOperationFactory.reserveAndCreateVolumes(frameworkId, stateOp, resourceMatch.resources, localVolumes)
@@ -325,7 +334,8 @@ object InstanceOpFactoryImpl {
         task.taskId -> task
       }(collection.breakOut),
       runSpecVersion = pod.version,
-      unreachableStrategy = pod.unreachableStrategy
+      unreachableStrategy = pod.unreachableStrategy,
+      reservationInfo = ReservationInfo.Empty
     )
   } // inferPodInstance
 }

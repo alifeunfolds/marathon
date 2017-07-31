@@ -123,7 +123,8 @@ object TestInstanceBuilder {
     state = InstanceState(Condition.Created, now, None, healthy = None),
     tasksMap = Map.empty,
     runSpecVersion = version,
-    UnreachableStrategy.default()
+    UnreachableStrategy.default(),
+    ReservationInfo.Empty
   )
 
   private val defaultAgentInfo = Instance.AgentInfo(host = "host.some", agentId = None, attributes = Seq.empty)

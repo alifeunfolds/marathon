@@ -9,7 +9,7 @@ import mesosphere.marathon.core.deployment.{ DeploymentPlan, DeploymentStep, Dep
 import mesosphere.marathon.core.group.GroupManager
 import mesosphere.marathon.core.health.{ Health, HealthCheckManager }
 import mesosphere.marathon.core.instance.Instance.InstanceState
-import mesosphere.marathon.core.instance.{ Instance, TestInstanceBuilder }
+import mesosphere.marathon.core.instance.{ Instance, ReservationInfo, TestInstanceBuilder }
 import mesosphere.marathon.core.pod.{ HostNetwork, MesosContainer, PodDefinition }
 import mesosphere.marathon.core.readiness.ReadinessCheckResult
 import mesosphere.marathon.core.task.Task
@@ -417,7 +417,8 @@ class AppInfoBaseDataTest extends UnitTest with GroupCreation {
         state = InstanceState(None, tasks, f.clock.now(), UnreachableStrategy.default()),
         tasksMap = tasks,
         runSpecVersion = pod.version,
-        unreachableStrategy = UnreachableStrategy.default()
+        unreachableStrategy = UnreachableStrategy.default(),
+        reservationInfo = ReservationInfo.Empty
       )
     }
 

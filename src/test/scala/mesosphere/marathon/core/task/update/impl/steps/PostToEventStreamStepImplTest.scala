@@ -8,7 +8,7 @@ import mesosphere.marathon.core.condition.Condition
 import mesosphere.marathon.core.event.{ InstanceHealthChanged, MarathonEvent }
 import mesosphere.marathon.core.instance.Instance.InstanceState
 import mesosphere.marathon.core.instance.update._
-import mesosphere.marathon.core.instance.Instance
+import mesosphere.marathon.core.instance.{ Instance, ReservationInfo }
 import mesosphere.marathon.state.UnreachableStrategy
 
 import scala.collection.immutable.Seq
@@ -110,7 +110,7 @@ class PostToEventStreamStepImplTest extends UnitTest {
     val instanceState = InstanceState(Condition.Running, clock.now(), Some(clock.now()), healthy = None)
     val instance = Instance(
       Instance.Id("foobar.instance-baz"), agentInfo, instanceState, Map.empty, clock.now(),
-      UnreachableStrategy.default()
+      UnreachableStrategy.default(), ReservationInfo.Empty
     )
     val eventStream = mock[EventStream]
 

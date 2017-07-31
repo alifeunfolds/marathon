@@ -11,7 +11,7 @@ import mesosphere.marathon.api.JsonTestHelper
 import mesosphere.marathon.core.async.ExecutionContexts
 import mesosphere.marathon.core.base.Clock
 import mesosphere.marathon.core.condition.Condition
-import mesosphere.marathon.core.instance.Instance
+import mesosphere.marathon.core.instance.{ Instance, ReservationInfo }
 import mesosphere.marathon.core.instance.Instance.InstanceState
 import mesosphere.marathon.core.instance.update.InstanceChangeHandler
 import mesosphere.marathon.core.launcher.impl.{ ReservationLabels, TaskLabels }
@@ -30,7 +30,7 @@ import mesosphere.marathon.stream.Implicits._
 import mesosphere.mesos.protos.{ FrameworkID, OfferID, Range, RangesResource, Resource, ScalarResource, SlaveID }
 import mesosphere.mesos.protos.Implicits._
 import mesosphere.util.state.FrameworkId
-import org.apache.mesos.Protos.Resource.{ DiskInfo, ReservationInfo }
+import org.apache.mesos
 import org.apache.mesos.Protos._
 import org.apache.mesos.{ Protos => Mesos }
 import play.api.libs.json.Json
@@ -176,7 +176,7 @@ object MarathonTestHelper {
 
   def scalarResource(
     name: String, d: Double, role: String = ResourceRole.Unreserved,
-    reservation: Option[ReservationInfo] = None, disk: Option[DiskInfo] = None): Mesos.Resource = {
+    reservation: Option[mesos.Protos.Resource.ReservationInfo] = None, disk: Option[mesos.Protos.Resource.DiskInfo] = None): Mesos.Resource = {
 
     val builder = Mesos.Resource
       .newBuilder()
@@ -193,7 +193,7 @@ object MarathonTestHelper {
 
   def portsResource(
     begin: Long, end: Long, role: String = ResourceRole.Unreserved,
-    reservation: Option[ReservationInfo] = None): Mesos.Resource = {
+    reservation: Option[mesos.Protos.Resource.ReservationInfo] = None): Mesos.Resource = {
 
     val ranges = Mesos.Value.Ranges.newBuilder()
       .addRange(Mesos.Value.Range.newBuilder().setBegin(begin).setEnd(end))
@@ -232,9 +232,9 @@ object MarathonTestHelper {
       .setName(Resource.DISK)
       .setScalar(Mesos.Value.Scalar.newBuilder.setValue(size))
       .setRole(role)
-      .setReservation(ReservationInfo.newBuilder().setPrincipal(principal))
-      .setDisk(DiskInfo.newBuilder()
-        .setPersistence(DiskInfo.Persistence.newBuilder().setId(id))
+      .setReservation(mesos.Protos.Resource.ReservationInfo.newBuilder().setPrincipal(principal))
+      .setDisk(mesos.Protos.Resource.DiskInfo.newBuilder()
+        .setPersistence(mesos.Protos.Resource.DiskInfo.Persistence.newBuilder().setId(id))
         .setVolume(Mesos.Volume.newBuilder()
           .setMode(Mesos.Volume.Mode.RW)
           .setContainerPath(containerPath)
@@ -349,7 +349,8 @@ object MarathonTestHelper {
     state = InstanceState(Condition.Created, since = clock.now(), None, healthy = None),
     tasksMap = Map.empty[Task.Id, Task],
     runSpecVersion = clock.now(),
-    UnreachableStrategy.default()
+    UnreachableStrategy.default(),
+    ReservationInfo.Empty
   )
 
   def createTaskTracker(

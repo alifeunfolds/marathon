@@ -5,7 +5,7 @@ import mesosphere.UnitTest
 import mesosphere.marathon.core.base.ConstantClock
 import mesosphere.marathon.core.health.Health
 import mesosphere.marathon.core.instance.Instance.AgentInfo
-import mesosphere.marathon.core.instance.{ Instance, LegacyAppInstance, TestTaskBuilder }
+import mesosphere.marathon.core.instance.{ Instance, LegacyAppInstance, ReservationInfo, TestTaskBuilder }
 import mesosphere.marathon.core.task.Task
 import mesosphere.marathon.state.{ PathId, Timestamp, UnreachableStrategy, VersionInfo }
 import play.api.libs.json.Json
@@ -106,7 +106,8 @@ class TaskStatsByVersionTest extends UnitTest {
     LegacyAppInstance(
       TestTaskBuilder.Helper.runningTask(newTaskId(), appVersion = version, startedAt = startedAt),
       agentInfo,
-      unreachableStrategy = UnreachableStrategy.default()
+      unreachableStrategy = UnreachableStrategy.default(),
+      reservationInfo = ReservationInfo.Empty
     )
   }
 }

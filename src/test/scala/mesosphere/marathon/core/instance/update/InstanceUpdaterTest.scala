@@ -6,7 +6,7 @@ import mesosphere.marathon.core.base.ConstantClock
 import mesosphere.marathon.core.condition.Condition
 import mesosphere.marathon.core.event.{ InstanceChanged, MesosStatusUpdateEvent }
 import mesosphere.marathon.core.instance.Instance.{ AgentInfo, InstanceState }
-import mesosphere.marathon.core.instance.{ Instance, TestInstanceBuilder }
+import mesosphere.marathon.core.instance.{ Instance, ReservationInfo, TestInstanceBuilder }
 import mesosphere.marathon.core.pod.MesosContainer
 import mesosphere.marathon.core.task.Task
 import mesosphere.marathon.core.task.bus.{ MesosTaskStatusTestHelper, TaskStatusUpdateTestHelper }
@@ -307,6 +307,6 @@ class InstanceUpdaterTest extends UnitTest {
     val task = Task.LaunchedEphemeral(taskId, runSpecVersion = clock.now(), status = taskStatus)
     val instance = Instance(
       Instance.Id("foobar.instance-baz"), agentInfo, instanceState, Map(taskId -> task), clock.now(),
-      UnreachableStrategy.default())
+      UnreachableStrategy.default(), ReservationInfo.Empty)
   }
 }

@@ -1,12 +1,11 @@
 package mesosphere.marathon
 package core.launcher.impl
 
-import mesosphere.marathon.core.instance.Instance
+import mesosphere.marathon.core.instance.{ Instance, LocalVolume }
 import mesosphere.marathon.core.instance.update.InstanceUpdateOperation
 import mesosphere.marathon.core.launcher.InstanceOp
 import mesosphere.marathon.core.matcher.base.util.OfferOperationFactory
 import mesosphere.marathon.core.task.Task
-import mesosphere.marathon.core.task.Task.LocalVolume
 import mesosphere.marathon.state.DiskSource
 import mesosphere.util.state.FrameworkId
 import org.apache.mesos.{ Protos => Mesos }

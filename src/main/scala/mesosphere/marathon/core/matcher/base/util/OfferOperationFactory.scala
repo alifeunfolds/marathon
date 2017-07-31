@@ -1,9 +1,9 @@
 package mesosphere.marathon
 package core.matcher.base.util
 
+import mesosphere.marathon.core.instance.LocalVolume
 import mesosphere.marathon.core.launcher.impl.TaskLabels
 import mesosphere.marathon.core.task.Task
-import mesosphere.marathon.core.task.Task.LocalVolume
 import mesosphere.marathon.state.DiskSource
 import mesosphere.marathon.stream.Implicits._
 import mesosphere.util.state.FrameworkId
