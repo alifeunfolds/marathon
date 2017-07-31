@@ -483,7 +483,7 @@ def private_mesos_container_app(secret_name, app_id=None):
             "type": 'MESOS',
             "docker": {
                 "image": "mesosphere/simple-docker-ee:latest",
-                "config": {
+                "pullConfig": {
                     "secret": "pullConfigSecret"
                 }
             }
