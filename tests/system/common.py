@@ -53,6 +53,14 @@ def app_mesos(app_id=None):
     }
 
 
+def ignore_exception(exc):
+    """ Used with @retrying.retry to igmore exceptions in a retry loop.
+    ex.  @retrying.retry( retry_on_exception=ignore_exception)
+    It does verify that the object passed is an exception
+    """
+    return isinstance(exc, Exception)
+
+
 def constraints(name, operator, value=None):
     constraints = [name, operator]
     if value is not None:

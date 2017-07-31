@@ -183,7 +183,7 @@ def test_docker_dns_mapping(marathon_service_name):
     status, output = shakedown.run_command_on_master(bad_cmd)
     assert not status
 
-    @retrying.retry(stop_max_attempt_number=30, retry_on_exception=lambda x: True)
+    @retrying.retry(stop_max_attempt_number=30, retry_on_exception=common.ignore_exception)
     def check_dns():
         cmd = 'ping -c 1 {}.{}.mesos'.format(app_id, marathon_service_name)
         shakedown.wait_for_dns('{}.{}.mesos'.format(app_id, marathon_service_name))
@@ -231,7 +231,7 @@ def test_task_failure_recovers():
     shakedown.kill_process_on_host(host, '[s]leep')
     shakedown.deployment_wait()
 
-    @retrying.retry(stop_max_delay=10000, retry_on_exception=lambda x: True)
+    @retrying.retry(stop_max_delay=10000, retry_on_exception=common.ignore_exception)
     def check_new_task_id():
         new_tasks = client.get_tasks(app_id)
         assert tasks[0]['id'] != new_tasks[0]['id'], "id: {} is NOT {}".format(tasks[0]['id'], new_tasks[0]['id'])
@@ -269,7 +269,7 @@ def test_bad_user():
     client = marathon.create_client()
     client.add_app(app_def)
 
-    @retrying.retry(wait_fixed=1000, stop_max_delay=10000, retry_on_exception=lambda x: True)
+    @retrying.retry(wait_fixed=1000, stop_max_delay=10000, retry_on_exception=common.ignore_exception)
     def check_failure_message():
         appl = client.get_app(app_id)
         message = appl['lastTaskFailure']['message']
@@ -294,7 +294,7 @@ def test_bad_uri():
     client.add_app(app_def)
 
 
-    @retrying.retry(wait_fixed=1000, stop_max_attempt_number=30, retry_on_exception=lambda x: True)
+    @retrying.retry(wait_fixed=1000, stop_max_attempt_number=30, retry_on_exception=common.ignore_exception)
     def check_failure_message():
         appl = client.get_app(app_id)
         message = appl['lastTaskFailure']['message']
@@ -498,7 +498,7 @@ def test_health_check_unhealthy():
 
     client.add_app(app_def)
 
-    @retrying.retry(wait_fixed=1000, stop_max_delay=10000, retry_on_exception=lambda x: True)
+    @retrying.retry(wait_fixed=1000, stop_max_delay=10000, retry_on_exception=common.ignore_exception)
     def check_failure_message():
         app = client.get_app('/unhealthy')
         assert app['tasksRunning'] == 1 and app['tasksHealthy'] == 0 and app['tasksUnhealthy'] == 1
@@ -541,7 +541,7 @@ def test_health_failed_check():
     shakedown.deployment_wait()
 
     # after network failure is restored.  The task returns and is a new task ID
-    @retrying.retry(wait_fixed=1000, stop_max_delay=3000, retry_on_exception=lambda x: True)
+    @retrying.retry(wait_fixed=1000, stop_max_delay=3000, retry_on_exception=common.ignore_exception)
     def check_health_message():
         new_tasks = client.get_tasks('/healthy')
         assert new_tasks[0]['id'] != tasks[0]['id']
@@ -614,7 +614,7 @@ def test_pinned_task_recovers_on_host():
     shakedown.kill_process_on_host(host, '[s]leep')
     shakedown.deployment_wait()
 
-    @retrying.retry(wait_fixed=1000, stop_max_delay=3000, retry_on_exception=lambda x: True)
+    @retrying.retry(wait_fixed=1000, stop_max_delay=3000, retry_on_exception=common.ignore_exception)
     def check_for_new_task():
         new_tasks = client.get_tasks('/pinned')
         assert tasks[0]['id'] != new_tasks[0]['id']
@@ -695,7 +695,7 @@ def test_launch_container_with_persistent_volume():
     client.restart_app(app_id)
     shakedown.deployment_wait()
 
-    @retrying.retry(wait_fixed=1000, stop_max_delay=10000, retry_on_exception=lambda x: True)
+    @retrying.retry(wait_fixed=1000, stop_max_delay=10000, retry_on_exception=common.ignore_exception)
     def check_task_recovery():
         tasks = client.get_tasks(app_id)
         assert len(tasks) == 1, "Num of tasks: {} is not 1 after recovery".format(len(tasks))
@@ -816,7 +816,7 @@ def test_marathon_with_master_process_failure(marathon_service_name):
     common.systemctl_master()
     shakedown.wait_for_service_endpoint(marathon_service_name)
 
-    @retrying.retry(wait_fixed=1000, stop_max_delay=10000, retry_on_exception=lambda x: True)
+    @retrying.retry(wait_fixed=1000, stop_max_delay=10000, retry_on_exception=common.ignore_exception)
     def check_task_recovery():
         tasks = client.get_tasks('/master-failure')
         assert tasks[0]['id'] == original_task_id
@@ -845,7 +845,7 @@ def test_marathon_when_disconnected_from_zk():
         time.sleep(10)
 
     # after access to zk is restored.
-    @retrying.retry(wait_fixed=1000, stop_max_delay=3000, retry_on_exception=lambda x: True)
+    @retrying.retry(wait_fixed=1000, stop_max_delay=3000, retry_on_exception=common.ignore_exception)
     def check_task_is_back():
         tasks = client.get_tasks('/zk-failure')
         assert tasks[0]['id'] == original_task_id
@@ -868,7 +868,7 @@ def test_marathon_when_task_agent_bounced():
     original_task_id = tasks[0]['id']
     shakedown.restart_agent(host)
 
-    @retrying.retry(wait_fixed=1000, stop_max_delay=3000, retry_on_exception=lambda x: True)
+    @retrying.retry(wait_fixed=1000, stop_max_delay=3000, retry_on_exception=common.ignore_exception)
     def check_task_is_back():
         tasks = client.get_tasks('/agent-failure')
         assert tasks[0]['id'] == original_task_id
@@ -928,7 +928,7 @@ def _test_declined_offer(app_id, app_def, reason):
     client = marathon.create_client()
     client.add_app(app_def)
 
-    @retrying.retry(wait_fixed=1000, stop_max_delay=10000, retry_on_exception=lambda x: True)
+    @retrying.retry(wait_fixed=1000, stop_max_delay=10000, retry_on_exception=common.ignore_exception)
     def verify_declined_offer():
         deployments = client.get_deployments(app_id)
         assert len(deployments) == 1
