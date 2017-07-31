@@ -91,7 +91,7 @@ class InstanceOpFactoryImpl(
       RunSpecOfferMatcher.matchOffer(app, offer, instances.values.toIndexedSeq, config.defaultAcceptedResourceRolesSet)
     matchResponse match {
       case matches: ResourceMatchResponse.Match =>
-        val taskBuilder = new TaskBuilder(app, Task.Id.forRunSpec, config, runSpecTaskProc)
+        val taskBuilder = new TaskBuilder(app, config, runSpecTaskProc)
         val (taskInfo, networkInfo) = taskBuilder.build(request.offer, matches.resourceMatch, None)
         val task = Task(
           taskId = Task.Id(taskInfo.getTaskId),
@@ -146,7 +146,9 @@ class InstanceOpFactoryImpl(
 
         // resources are reserved for this role, so we only consider those resources
         val rolesToConsider = config.mesosRole.get.toSet
-        val reservationLabels = TaskLabels.labelsForTask(request.frameworkId, volumeMatch.instance.appTask.taskId).labels
+        // TODO: not nice to fold over reservationInfo here – if there's a volumeMatch, the info is set
+        // and we should create a decent way to make it accessible. Maybe expose via VolumeMatch?
+        val reservationLabels = volumeMatch.instance.reservationInfo.fold(Map.empty[String, String])(_.labels)
         val resourceMatchResponse =
           ResourceMatcher.matchResources(
             offer, runSpec, instancesToConsiderForConstraints,
@@ -202,11 +204,7 @@ class InstanceOpFactoryImpl(
     resourceMatch: ResourceMatcher.ResourceMatch,
     volumeMatch: PersistentVolumeMatcher.VolumeMatch): InstanceOp = {
 
-    val reuseOldTaskId = (_: PathId) => reservedInstance.tasksMap.headOption.map(_._1).getOrElse {
-      throw new IllegalStateException(s"${reservedInstance.instanceId} does not contain any task")
-    }
-    // create a TaskBuilder that used the id of the existing task as id for the created TaskInfo
-    val (taskInfo, networkInfo) = new TaskBuilder(spec, reuseOldTaskId, config, runSpecTaskProc).build(offer, resourceMatch, Some(volumeMatch))
+    val (taskInfo, networkInfo) = new TaskBuilder(spec, config, runSpecTaskProc).build(offer, resourceMatch, Some(volumeMatch))
     val stateOp = InstanceUpdateOperation.LaunchOnReservation(
       reservedInstance.instanceId,
       runSpecVersion = spec.version,
@@ -268,7 +266,7 @@ class InstanceOpFactoryImpl(
       reservationInfo = Some(reservationInfo)
     )
     val stateOp = InstanceUpdateOperation.Reserve(instance)
-    taskOperationFactory.reserveAndCreateVolumes(frameworkId, stateOp, resourceMatch.resources, localVolumes)
+    taskOperationFactory.reserveAndCreateVolumes(stateOp, reservationInfo, resourceMatch.resources, localVolumes)
   }
 
   def combine(processors: Seq[RunSpecTaskProcessor]): RunSpecTaskProcessor = new RunSpecTaskProcessor {

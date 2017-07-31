@@ -1,13 +1,12 @@
 package mesosphere.marathon
 package core.launcher.impl
 
-import mesosphere.marathon.core.instance.{ Instance, LocalVolume }
+import mesosphere.marathon.core.instance.{ Instance, LocalVolume, ReservationInfo }
 import mesosphere.marathon.core.instance.update.InstanceUpdateOperation
 import mesosphere.marathon.core.launcher.InstanceOp
 import mesosphere.marathon.core.matcher.base.util.OfferOperationFactory
 import mesosphere.marathon.core.task.Task
 import mesosphere.marathon.state.DiskSource
-import mesosphere.util.state.FrameworkId
 import org.apache.mesos.{ Protos => Mesos }
 
 class InstanceOpFactoryHelper(
@@ -64,21 +63,14 @@ class InstanceOpFactoryHelper(
     */
   @SuppressWarnings(Array("TraversableHead"))
   def reserveAndCreateVolumes(
-    frameworkId: FrameworkId,
     newState: InstanceUpdateOperation.Reserve,
+    reservationInfo: ReservationInfo,
     resources: Seq[Mesos.Resource],
     localVolumes: Seq[(DiskSource, LocalVolume)]): InstanceOp.ReserveAndCreateVolumes = {
 
-    require(
-      newState.instance.tasksMap.size == 1,
-      "reserveAndCreateVolumes() is not implemented for multi container instances")
-    val (taskId, _) = newState.instance.tasksMap.head
     def createOperations = Seq(
-      offerOperationFactory.reserve(frameworkId, taskId, resources),
-      offerOperationFactory.createVolumes(
-        frameworkId,
-        taskId,
-        localVolumes))
+      offerOperationFactory.reserve(reservationInfo, resources),
+      offerOperationFactory.createVolumes(reservationInfo, localVolumes))
 
     InstanceOp.ReserveAndCreateVolumes(newState, resources, createOperations)
   }

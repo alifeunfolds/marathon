@@ -2,7 +2,8 @@ package mesosphere.marathon
 package core.matcher.base.util
 
 import mesosphere.UnitTest
-import mesosphere.marathon.core.instance.{ LocalVolume, LocalVolumeId }
+import mesosphere.marathon.core.instance.{ LocalVolume, LocalVolumeId, ReservationInfo }
+import mesosphere.marathon.core.launcher.impl.TaskLabels
 import mesosphere.marathon.core.task.Task
 import mesosphere.marathon.state.{ DiskSource, PathId, PersistentVolume, PersistentVolumeInfo }
 import mesosphere.marathon.stream.Implicits._
@@ -34,8 +35,12 @@ class OfferOperationFactoryTest extends UnitTest {
       val factory = new OfferOperationFactory(Some("principal"), None)
 
       When("We create a reserve operation")
+      val reservationInfo = ReservationInfo(
+        Seq.empty,
+        Map.empty[String, String],
+        ReservationInfo.Timeout.Empty)
       val error = intercept[WrongConfigurationException] {
-        factory.reserve(f.frameworkId, Task.Id.forRunSpec(PathId("/test")), Seq(Mesos.Resource.getDefaultInstance))
+        factory.reserve(reservationInfo, Seq(Mesos.Resource.getDefaultInstance))
       }
 
       Then("A meaningful exception is thrown")
@@ -47,10 +52,17 @@ class OfferOperationFactoryTest extends UnitTest {
 
       Given("A simple task")
       val factory = new OfferOperationFactory(Some("principal"), Some("role"))
-      val task = MarathonTestHelper.makeOneCPUTask(Task.Id.forRunSpec(f.runSpecId))
+      val taskId = Task.Id.forRunSpec(f.runSpecId)
+      val task = MarathonTestHelper.makeOneCPUTask(taskId)
+      val volumes = Seq(f.localVolume("mount"))
 
       When("We create a reserve operation")
-      val operation = factory.reserve(f.frameworkId, Task.Id(task.getTaskId), task.getResourcesList.to[Seq])
+      val reservationInfo = ReservationInfo(
+        volumes.map(_.id),
+        TaskLabels.labelsForTask(f.frameworkId, taskId).labels,
+        ReservationInfo.Timeout.Empty)
+
+      val operation = factory.reserve(reservationInfo, task.getResourcesList.to[Seq])
 
       Then("The operation is as expected")
       operation.getType shouldEqual Mesos.Offer.Operation.Type.RESERVE
@@ -72,12 +84,17 @@ class OfferOperationFactoryTest extends UnitTest {
 
       Given("a factory without principal")
       val factory = new OfferOperationFactory(Some("principal"), Some("role"))
-      val task = MarathonTestHelper.makeOneCPUTask(Task.Id.forRunSpec(f.runSpecId))
+      val taskId = Task.Id.forRunSpec(f.runSpecId)
+      val task = MarathonTestHelper.makeOneCPUTask(taskId)
       val volumes = Seq(f.localVolume("mount"))
       val resource = MarathonTestHelper.scalarResource("disk", 1024)
 
       When("We create a reserve operation")
-      val operation = factory.createVolumes(f.frameworkId, Task.Id(task.getTaskId), volumes.map(v => (DiskSource.root, v)))
+      val reservationInfo = ReservationInfo(
+        volumes.map(_.id),
+        TaskLabels.labelsForTask(f.frameworkId, taskId).labels,
+        ReservationInfo.Timeout.Empty)
+      val operation = factory.createVolumes(reservationInfo, volumes.map(v => (DiskSource.root, v)))
 
       Then("The operation is as expected")
       operation.getType shouldEqual Mesos.Offer.Operation.Type.CREATE

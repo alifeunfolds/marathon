@@ -5,8 +5,11 @@ import mesosphere.marathon.core.task.Task
 import mesosphere.util.state.FrameworkId
 import org.apache.mesos.{ Protos => MesosProtos }
 
+// TODO: rename?
 object TaskLabels {
   private[this] final val FRAMEWORK_ID_LABEL = "marathon_framework_id"
+
+  // Note we cannot change this value, as it is present in legacy reservations
   private[this] final val TASK_ID_LABEL = "marathon_task_id"
 
   /**

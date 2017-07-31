@@ -1,13 +1,9 @@
 package mesosphere.marathon
 package core.matcher.base.util
 
-import mesosphere.marathon.core.instance.LocalVolume
-import mesosphere.marathon.core.launcher.impl.TaskLabels
-import mesosphere.marathon.core.task.Task
+import mesosphere.marathon.core.instance.{ LocalVolume, ReservationInfo }
 import mesosphere.marathon.state.DiskSource
 import mesosphere.marathon.stream.Implicits._
-import mesosphere.util.state.FrameworkId
-import org.apache.mesos.Protos.Resource.ReservationInfo
 import org.apache.mesos.{ Protos => Mesos }
 
 class OfferOperationFactory(
@@ -49,12 +45,16 @@ class OfferOperationFactory(
       .build()
   }
 
-  def reserve(frameworkId: FrameworkId, taskId: Task.Id, resources: Seq[Mesos.Resource]): //
-  Mesos.Offer.Operation = {
+  private[this] def mesosLabels(reservationInfo: ReservationInfo): Mesos.Labels = {
+    import mesosphere.mesos.protos.Implicits._
+    reservationInfo.labels.toMesosLabels
+  }
+
+  def reserve(reservationInfo: ReservationInfo, resources: Seq[Mesos.Resource]): Mesos.Offer.Operation = {
     val reservedResources = resources.map { resource =>
 
-      val reservation = ReservationInfo.newBuilder()
-        .setLabels(TaskLabels.labelsForTask(frameworkId, taskId).mesosLabels)
+      val reservation = Mesos.Resource.ReservationInfo.newBuilder()
+        .setLabels(mesosLabels(reservationInfo))
         .setPrincipal(principal)
 
       Mesos.Resource.newBuilder(resource)
@@ -74,8 +74,7 @@ class OfferOperationFactory(
   }
 
   def createVolumes(
-    frameworkId: FrameworkId,
-    taskId: Task.Id,
+    reservationInfo: ReservationInfo,
     localVolumes: Seq[(DiskSource, LocalVolume)]): Mesos.Offer.Operation = {
 
     val volumes: Seq[Mesos.Resource] = localVolumes.map {
@@ -96,7 +95,7 @@ class OfferOperationFactory(
         }
 
         val reservation = Mesos.Resource.ReservationInfo.newBuilder()
-          .setLabels(TaskLabels.labelsForTask(frameworkId, taskId).mesosLabels)
+          .setLabels(mesosLabels(reservationInfo))
         principalOpt.foreach(reservation.setPrincipal)
 
         Mesos.Resource.newBuilder()

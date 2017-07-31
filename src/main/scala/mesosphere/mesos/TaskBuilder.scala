@@ -18,7 +18,6 @@ import scala.collection.immutable.Seq
 
 class TaskBuilder(
     runSpec: AppDefinition,
-    newTaskId: PathId => Task.Id,
     config: MarathonConf,
     runSpecTaskProc: RunSpecTaskProcessor = RunSpecTaskProcessor.empty) extends StrictLogging {
 
@@ -35,7 +34,7 @@ class TaskBuilder(
 
     val host: Option[String] = Some(offer.getHostname)
 
-    val taskId = newTaskId(runSpec.id)
+    val taskId = Task.Id.forRunSpec(runSpec.id)
     val builder = TaskInfo.newBuilder
       // Use a valid hostname to make service discovery easier
       .setName(runSpec.id.toHostname)
